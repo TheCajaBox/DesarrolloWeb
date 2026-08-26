@@ -36,6 +36,9 @@ const ACENTOS = {
   Datos: '#86a95e',
   'Componentes que hablan': '#6f9bb5',
   'Varias pantallas': '#a986c0',
+  'Estado compartido': '#5fae9e',
+  'El servidor': '#7d89b0',
+  Publicar: '#d9a13b',
 }
 const acento = computed(() => ACENTOS[curso.mundo?.acto] || '#dfb96f')
 

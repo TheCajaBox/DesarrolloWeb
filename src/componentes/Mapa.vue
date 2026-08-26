@@ -23,16 +23,25 @@ const mundo = inject('almacenCurso', () => usarMundo(), true)
 // estática —solo cambia el progreso—, así que se captura una vez.
 const mundos = mundo.todos
 
-const ROMANOS = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII']
+const ROMANOS = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII']
 
-// Los mismos colores que usa la cabecera del taller. Aquí se ven los cinco a
-// la vez, y eso solo ya le da forma a la página.
+// Los mismos colores que usa la cabecera del taller. Aquí se ven todos a la
+// vez, y eso solo ya le da forma a la página. Cubre los dos temarios: el del
+// taller web (vanilla) y el de la app de escritorio (Vue).
 const ACENTOS = {
   'Qué es todo esto': '#dfb96f',
   'Que se vea bien': '#c06840',
   'Que haga cosas': '#86a95e',
   'El otro lado': '#6f9bb5',
   'Ponerlo en el mundo': '#a986c0',
+  'Un componente': '#dfb96f',
+  'Que se vea': '#c06840',
+  Datos: '#86a95e',
+  'Componentes que hablan': '#6f9bb5',
+  'Varias pantallas': '#a986c0',
+  'Estado compartido': '#5fae9e',
+  'El servidor': '#7d89b0',
+  Publicar: '#d9a13b',
 }
 
 const actos = computed(() => {

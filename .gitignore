@@ -8,3 +8,6 @@ Thumbs.db
 
 # Envoltorio local por el PATH rancio de esta sesion; no hace falta en otras maquinas.
 herramientas/npm-con-node.cmd
+
+# Lo que produce electron-builder: instaladores y app desempaquetada.
+instalador/

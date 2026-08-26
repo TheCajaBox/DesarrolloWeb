@@ -17,4 +17,7 @@ contextBridge.exposeInMainWorld('taller', {
   renombrar: (desde, hasta) => ipcRenderer.invoke('taller:renombrar', desde, hasta),
   listar: () => ipcRenderer.invoke('taller:listar'),
   urlVista: () => ipcRenderer.invoke('taller:url-vista'),
+  // El build real de Vite sobre el proyecto: deja la web lista en dist/ y
+  // abre la carpeta. Devuelve { ok, ruta } o { ok: false, error }.
+  exportar: () => ipcRenderer.invoke('taller:exportar'),
 })

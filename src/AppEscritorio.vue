@@ -70,6 +70,30 @@ async function sembrarMundo() {
   if (curso.mundo) await taller.sembrar(curso.mundo.ficheros)
 }
 
+// Exportar: el build real de Vite sobre el proyecto. En la app de escritorio
+// compila y abre dist/; en el navegador (mock) solo explica qué haría.
+const exportando = ref(false)
+
+async function exportarWeb() {
+  if (!window.taller?.exportar) return
+  exportando.value = true
+  try {
+    const resultado = await window.taller.exportar()
+    if (resultado?.ok) {
+      wayne.decirTexto(
+        'Exportada. Eso que se acaba de abrir es tu web de verdad, compilada y lista para cualquier hosting. Ha quedado apañada.',
+      )
+    } else {
+      await avisar({
+        titulo: 'La exportación no ha podido ser',
+        texto: resultado?.error || 'Algo se ha torcido a mitad del build.',
+      })
+    }
+  } finally {
+    exportando.value = false
+  }
+}
+
 onMounted(async () => {
   curso.recuperarProgreso()
   await taller.cargar()
@@ -202,6 +226,15 @@ async function borrar(ruta) {
         <span class="estado" :class="estado.clase">{{ estado.texto }}</span>
         <button class="mini" @click="reiniciarMundo">Reiniciar mundo</button>
       </template>
+
+      <button
+        class="exportar"
+        :disabled="exportando"
+        title="El build real de Vite: deja tu web empaquetada en dist/ y abre la carpeta"
+        @click="exportarWeb"
+      >
+        {{ exportando ? 'Exportando…' : 'Exportar mi web' }}
+      </button>
     </header>
 
     <p v-if="cargando" class="cargando">Abriendo el taller&hellip;</p>
@@ -486,6 +519,28 @@ async function borrar(ruta) {
 .mini:hover {
   color: var(--acento);
   background: none;
+}
+
+.exportar {
+  border: 1px solid var(--laton-oscuro);
+  border-radius: 99px;
+  padding: 0.3rem 0.85rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--laton);
+  background: linear-gradient(180deg, rgb(223 185 111 / 0.14), rgb(223 185 111 / 0.04));
+  white-space: nowrap;
+  transition: border-color 0.2s var(--curva), box-shadow 0.2s var(--curva);
+}
+
+.exportar:hover:not(:disabled) {
+  border-color: var(--laton);
+  box-shadow: 0 2px 10px rgb(0 0 0 / 0.3);
+}
+
+.exportar:disabled {
+  opacity: 0.6;
+  cursor: progress;
 }
 
 .cargando {

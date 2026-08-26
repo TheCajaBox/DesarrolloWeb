@@ -58,5 +58,11 @@ if (typeof window !== 'undefined' && !window.taller) {
     },
     listar: async () => [...ficheros.keys()],
     urlVista: async () => '',
+    // En el navegador no hay build real: se explica qué haría la app.
+    exportar: async () => ({
+      ok: false,
+      error:
+        'Exportar necesita la app de escritorio: ahí Vite compila tu proyecto de verdad y te abre la carpeta dist/.',
+    }),
   }
 }

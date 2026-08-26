@@ -23,8 +23,9 @@ export const usarTaller = defineStore('taller', {
     guardando: false,
     error: null,
     // Estado de la copia en la nube: 'sin-probar', 'guardando', 'guardado',
-    // 'solo-local' (no hay sesión) o 'error'.
-    nube: 'sin-probar',
+    // 'solo-local' (no hay sesión) o 'error'. En el escritorio no hay nube:
+    // el disco de verdad ya es la copia buena.
+    nube: sfv.esEscritorio ? 'solo-local' : 'sin-probar',
     // Sube cada vez que hay un cambio guardado; la vista previa lo observa
     // para saber cuando recargarse.
     revision: 0,
@@ -156,6 +157,13 @@ export const usarTaller = defineStore('taller', {
     // dos sitios editan a la vez, se pierde el trabajo del que iba atrasado.
     // Se dice claro en vez de disimularlo.
     async sincronizarAlEntrar() {
+      // En la app de escritorio los ficheros ya viven en el disco de verdad:
+      // no hay nube que sincronizar ni /api que preguntar.
+      if (sfv.esEscritorio) {
+        this.nube = 'solo-local'
+        return
+      }
+
       let deLaNube
 
       try {

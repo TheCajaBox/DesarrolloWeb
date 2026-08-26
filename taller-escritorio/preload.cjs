@@ -8,6 +8,9 @@
 const { contextBridge, ipcRenderer } = require('electron')
 
 contextBridge.exposeInMainWorld('taller', {
+  // Marca que estamos en la app de escritorio real (no en el navegador con un
+  // puente de mentira). La vista previa lo usa para decidir si pinta el webview.
+  esEscritorio: true,
   leer: (ruta) => ipcRenderer.invoke('taller:leer', ruta),
   escribir: (ruta, contenido) => ipcRenderer.invoke('taller:escribir', ruta, contenido),
   borrar: (ruta) => ipcRenderer.invoke('taller:borrar', ruta),

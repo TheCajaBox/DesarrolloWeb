@@ -8,7 +8,7 @@
 
 <template>
   <main>
-    <h1>Cambia esto</h1>
+    <h1>No quiero esto</h1>
   </main>
 </template>
 

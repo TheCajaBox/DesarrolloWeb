@@ -1,45 +1,52 @@
-// Proceso principal de la app de escritorio (Fase 0: la espina dorsal).
+// Proceso principal de la app de escritorio.
 //
-// Hace tres cosas:
-//   1. Arranca un Vite de VERDAD, en proceso, contra el proyecto de la alumna.
-//   2. Abre la ventana con la interfaz del taller.
-//   3. Da al renderer un puente estrecho para leer y escribir sus ficheros.
+// Arranca DOS Vite en proceso:
+//   1. El del proyecto de la alumna (lo que ella construye) → vista previa.
+//   2. El de la interfaz del taller (mapa, lecciones, editor, Wayne).
+// Y abre la ventana con la interfaz, dándole un puente estrecho para leer y
+// escribir los ficheros del proyecto.
 //
-// CommonJS (.cjs) a propósito: el repo es "type": "module", y Electron va más
-// fino en CJS. Los paquetes que solo existen en ESM (vite, plugin-vue) se
-// cargan con import() dinámico, que funciona igual desde CJS.
+// CommonJS (.cjs): el repo es "type": "module" y Electron va más fino en CJS.
+// Vite y su plugin (solo ESM) se cargan con import() dinámico.
 
 const { app, BrowserWindow, ipcMain } = require('electron')
 const path = require('node:path')
 const fs = require('node:fs/promises')
 
-// Para la Fase 0, el proyecto de la alumna vive dentro del repo, así Vite
-// resuelve `vue` subiendo hasta node_modules sin tener que duplicarlo. En el
-// empaquetado final se copiará a la carpeta de datos del usuario con su propio
-// node_modules.
+const RAIZ = path.join(__dirname, '..')
 const PROYECTO = path.join(__dirname, 'proyecto-alumna')
 
-let servidorVite = null
-let urlVista = ''
+let viteAlumna = null
+let viteInterfaz = null
+let urlVistaAlumna = ''
+let urlInterfaz = ''
 
-async function arrancarVite() {
+async function arrancarVites() {
   const { createServer } = await import('vite')
   const vue = (await import('@vitejs/plugin-vue')).default
 
-  servidorVite = await createServer({
+  // 1. El proyecto de la alumna (lo que se ve en la vista previa).
+  viteAlumna = await createServer({
     root: PROYECTO,
     configFile: false,
     logLevel: 'warn',
     plugins: [vue()],
-    // strictPort: si el 5199 estuviera ocupado, que falle claro en vez de
-    // saltar a otro puerto y dejar la vista previa apuntando a la nada.
     server: { host: '127.0.0.1', port: 5199, strictPort: true },
   })
+  await viteAlumna.listen()
+  urlVistaAlumna = `http://127.0.0.1:${viteAlumna.config.server.port}/`
 
-  await servidorVite.listen()
-  const puerto = servidorVite.config.server.port
-  urlVista = `http://127.0.0.1:${puerto}/`
-  console.log('[taller] Vite en', urlVista)
+  // 2. La interfaz del taller (usa su propia configuración del repo).
+  viteInterfaz = await createServer({
+    configFile: path.join(RAIZ, 'vite.escritorio.js'),
+    logLevel: 'warn',
+    server: { host: '127.0.0.1', port: 5280, strictPort: true },
+  })
+  await viteInterfaz.listen()
+  urlInterfaz = `http://127.0.0.1:${viteInterfaz.config.server.port}/`
+
+  console.log('[taller] proyecto en', urlVistaAlumna)
+  console.log('[taller] interfaz en', urlInterfaz)
 }
 
 function crearVentana() {
@@ -52,17 +59,15 @@ function crearVentana() {
       preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
-      // La vista previa va en un <webview> apuntando al Vite local.
       webviewTag: true,
     },
   })
 
-  ventana.loadFile(path.join(__dirname, 'indice.html'))
+  ventana.loadURL(urlInterfaz)
   return ventana
 }
 
-// El puente: el renderer solo puede tocar ficheros DENTRO del proyecto, nunca
-// del disco entero. Cada ruta se normaliza y se comprueba que no se escapa.
+// El renderer solo puede tocar ficheros DENTRO del proyecto de la alumna.
 function rutaSegura(ruta) {
   const absoluta = path.resolve(PROYECTO, String(ruta || ''))
   if (absoluta !== PROYECTO && !absoluta.startsWith(PROYECTO + path.sep)) {
@@ -72,7 +77,7 @@ function rutaSegura(ruta) {
 }
 
 app.whenReady().then(async () => {
-  await arrancarVite()
+  await arrancarVites()
 
   ipcMain.handle('taller:leer', async (_e, ruta) => {
     try {
@@ -86,6 +91,18 @@ app.whenReady().then(async () => {
     const destino = rutaSegura(ruta)
     await fs.mkdir(path.dirname(destino), { recursive: true })
     await fs.writeFile(destino, String(contenido), 'utf8')
+    return true
+  })
+
+  ipcMain.handle('taller:borrar', async (_e, ruta) => {
+    await fs.rm(rutaSegura(ruta), { force: true })
+    return true
+  })
+
+  ipcMain.handle('taller:renombrar', async (_e, desde, hasta) => {
+    const destino = rutaSegura(hasta)
+    await fs.mkdir(path.dirname(destino), { recursive: true })
+    await fs.rename(rutaSegura(desde), destino)
     return true
   })
 
@@ -103,19 +120,7 @@ app.whenReady().then(async () => {
     return salida
   })
 
-  ipcMain.handle('taller:borrar', async (_e, ruta) => {
-    await fs.rm(rutaSegura(ruta), { force: true })
-    return true
-  })
-
-  ipcMain.handle('taller:renombrar', async (_e, desde, hasta) => {
-    const destino = rutaSegura(hasta)
-    await fs.mkdir(path.dirname(destino), { recursive: true })
-    await fs.rename(rutaSegura(desde), destino)
-    return true
-  })
-
-  ipcMain.handle('taller:url-vista', () => urlVista)
+  ipcMain.handle('taller:url-vista', () => urlVistaAlumna)
 
   crearVentana()
 
@@ -125,6 +130,7 @@ app.whenReady().then(async () => {
 })
 
 app.on('window-all-closed', async () => {
-  if (servidorVite) await servidorVite.close().catch(() => {})
+  if (viteAlumna) await viteAlumna.close().catch(() => {})
+  if (viteInterfaz) await viteInterfaz.close().catch(() => {})
   if (process.platform !== 'darwin') app.quit()
 })

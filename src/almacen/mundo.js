@@ -23,6 +23,10 @@ export const usarMundo = defineStore('mundo', {
   }),
 
   getters: {
+    // La lista completa de mundos. La exponen los dos almacenes (este y el de
+    // escritorio) para que Mapa la pida al almacén inyectado en vez de importar
+    // un temario fijo.
+    todos: () => mundos,
     mundo: (estado) => mundoNumero(estado.numero),
     pasos() {
       return this.mundo ? this.mundo.pasos : []

@@ -18,7 +18,9 @@
     "bbdd:remota": "wrangler d1 migrations apply sombreros --remote -c wrangler.publico.jsonc",
     "test": "vitest run",
     "test:mirar": "vitest",
-    "escritorio": "electron taller-escritorio/main.cjs"
+    "escritorio": "electron taller-escritorio/main.cjs",
+    "dev:escritorio": "vite --config vite.escritorio.js",
+    "build:escritorio": "vite build --config vite.escritorio.js"
   },
   "dependencies": {
     "@codemirror/lang-css": "^6.3.1",

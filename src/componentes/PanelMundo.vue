@@ -8,7 +8,7 @@
 // Y cada bloque tiene ahora su propio aspecto. Antes el enunciado, la lista de
 // pasos y la lección eran el mismo gris del mismo tamaño, así que no se
 // distinguía qué era teoría y qué era tarea.
-import { computed, ref, watch } from 'vue'
+import { computed, inject, ref, watch } from 'vue'
 import { usarMundo } from '../almacen/mundo.js'
 import { formatear } from '../motor/formato.js'
 import { marcarTerminos } from '../motor/glosario.js'
@@ -31,7 +31,9 @@ const emitir = defineEmits(['cambiar-mundo', 'explicar', 'abrir-panel'])
 const NOMBRE_PANEL = { vista: 'Vista previa', sql: 'SQL', esquema: 'Esquema' }
 const nombrePanel = computed(() => NOMBRE_PANEL[props.panelNecesario] || 'Resultado')
 
-const mundo = usarMundo()
+// Inyectable: la app de escritorio provee su almacén (contenido Vue); el taller
+// web usa el suyo por defecto. Mismo componente, dos temarios.
+const mundo = inject('almacenCurso', () => usarMundo(), true)
 // La lección empieza abierta: es lo primero que hay que leer, no un extra.
 const verApunte = ref(true)
 const verPista = ref(false)

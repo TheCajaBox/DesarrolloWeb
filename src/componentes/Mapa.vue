@@ -5,8 +5,7 @@
 // grises en una pantalla de 1900 píxeles: parecía una página de móvil estirada.
 // Ahora los mundos van en rejilla, cada acto tiene su color, y los cerrados no
 // gritan.
-import { computed } from 'vue'
-import mundos from '../contenido/mundos/indice.js'
+import { computed, inject } from 'vue'
 import { usarMundo } from '../almacen/mundo.js'
 import wayneAvatar from '../recursos/wayne-avatar.webp'
 import waxAvatar from '../recursos/wax-avatar.webp'
@@ -15,7 +14,14 @@ import armoniaAvatar from '../recursos/armonia-avatar.webp'
 
 const emitir = defineEmits(['abrir', 'glosario'])
 
-const mundo = usarMundo()
+// El almacén se puede inyectar (la app de escritorio provee el suyo, con
+// contenido Vue). Si nadie lo provee, se usa el del taller web. Así el mismo
+// componente sirve para los dos sin duplicarlo.
+const mundo = inject('almacenCurso', () => usarMundo(), true)
+
+// La lista de mundos la da el almacén (web o escritorio), no un import fijo. Es
+// estática —solo cambia el progreso—, así que se captura una vez.
+const mundos = mundo.todos
 
 const ROMANOS = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII']
 

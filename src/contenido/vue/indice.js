@@ -18,6 +18,10 @@ import mundo11 from './mundo-11.js'
 import mundo12 from './mundo-12.js'
 import mundo13 from './mundo-13.js'
 import mundo14 from './mundo-14.js'
+import mundo15 from './mundo-15.js'
+import mundo16 from './mundo-16.js'
+import mundo17 from './mundo-17.js'
+import mundo18 from './mundo-18.js'
 
 const mundos = [
   mundo01,
@@ -34,6 +38,10 @@ const mundos = [
   mundo12,
   mundo13,
   mundo14,
+  mundo15,
+  mundo16,
+  mundo17,
+  mundo18,
 ].sort((a, b) => a.numero - b.numero)
 
 export default mundos

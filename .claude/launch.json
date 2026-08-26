@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "taller",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev:taller"],
+      "port": 5274
+    },
+    {
+      "name": "publico",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev:publico"],
+      "port": 5273
+    }
+  ]
+}

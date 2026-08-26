@@ -1,0 +1,49 @@
+{
+  "name": "el-sombrero-de-wayne",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Taller para aprender a construir una web desde 0, con Wayne y Wax de guias",
+  "scripts": {
+    "dev:publico": "vite --config vite.publico.js",
+    "dev:taller": "vite --config vite.taller.js",
+    "build": "npm run build:publico && npm run build:taller",
+    "build:publico": "vite build --config vite.publico.js",
+    "build:taller": "vite build --config vite.taller.js",
+    "servidor:publico": "wrangler dev -c wrangler.publico.jsonc",
+    "servidor:taller": "wrangler dev -c wrangler.taller.jsonc",
+    "publicar:publico": "npm run build:publico && wrangler deploy -c wrangler.publico.jsonc",
+    "publicar:taller": "npm run build:taller && wrangler deploy -c wrangler.taller.jsonc",
+    "bbdd:local": "wrangler d1 migrations apply sombreros --local -c wrangler.publico.jsonc",
+    "bbdd:remota": "wrangler d1 migrations apply sombreros --remote -c wrangler.publico.jsonc",
+    "test": "vitest run",
+    "test:mirar": "vitest"
+  },
+  "dependencies": {
+    "@codemirror/lang-css": "^6.3.1",
+    "@codemirror/lang-html": "^6.4.12",
+    "@codemirror/lang-javascript": "^6.2.5",
+    "@codemirror/lang-sql": "^6.10.0",
+    "@codemirror/state": "^6.5.2",
+    "@codemirror/theme-one-dark": "^6.1.3",
+    "@codemirror/view": "^6.36.2",
+    "@sqlite.org/sqlite-wasm": "3.53.0-build1",
+    "acorn": "^8.18.0",
+    "codemirror": "^6.0.2",
+    "hono": "^4.13.4",
+    "pinia": "^4.0.3",
+    "vue": "^3.5.41"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^6.0.8",
+    "fake-indexeddb": "^6.2.5",
+    "happy-dom": "^20.11.6",
+    "vite": "^8.2.2",
+    "vitest": "^4.1.11",
+    "wrangler": "^4.126.0"
+  },
+  "allowScripts": {
+    "esbuild@0.28.1": true,
+    "workerd@1.20260825.1": true
+  }
+}

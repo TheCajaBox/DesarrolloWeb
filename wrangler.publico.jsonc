@@ -1,0 +1,29 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "el-sombrero-de-wayne",
+  "main": "servidor/publico.js",
+  "compatibility_date": "2026-08-01",
+
+  // Sin `not_found_handling`: por defecto lo que no coincide con un fichero
+  // estatico cae al Worker, que es lo que queremos para /api/* y /publicado/*.
+  // Con "single-page-application" el Worker no se invocaria nunca y la API
+  // devolveria el index.html.
+  "assets": {
+    "directory": "dist/publico",
+    "binding": "ASSETS"
+  },
+
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "sombreros",
+      // La misma base en los dos Workers: mismo database_id, region WEUR.
+      "database_id": "1ecab141-1519-4847-9168-24270df2c30b",
+      // Va aqui dentro, no en el nivel superior: es propiedad de
+      // cada base, no del Worker.
+      "migrations_dir": "migraciones"
+    }
+  ],
+
+  "observability": { "enabled": true }
+}

@@ -1,0 +1,28 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "taller-sombrero",
+  "main": "servidor/taller.js",
+  "compatibility_date": "2026-08-01",
+
+  "assets": {
+    "directory": "dist/taller",
+    "binding": "ASSETS"
+  },
+
+  // La misma base que el Worker publico: mismo database_id, otro Worker.
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "sombreros",
+      "database_id": "1ecab141-1519-4847-9168-24270df2c30b",
+      // Va aqui dentro, no en el nivel superior: es propiedad de
+      // cada base, no del Worker.
+      "migrations_dir": "migraciones"
+    }
+  ],
+
+  // Armonia. Sin clave: 10.000 Neurons al dia, se reinician a las 00:00 UTC.
+  "ai": { "binding": "AI" },
+
+  "observability": { "enabled": true }
+}

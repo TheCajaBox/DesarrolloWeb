@@ -77,6 +77,12 @@ export default {
       <p>Serio por fuera, blando por dentro. Como su dueño.</p>
       <p class="precio">42 €</p>
     </article>
+
+    <article class="ficha">
+      <h2>Panamá de verano</h2>
+      <p>Para fingir que estás de vacaciones aunque sea martes.</p>
+      <p class="precio">35 €</p>
+    </article>
   </main>
 </template>
 

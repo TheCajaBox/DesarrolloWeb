@@ -9,8 +9,32 @@ import mundo02 from './mundo-02.js'
 import mundo03 from './mundo-03.js'
 import mundo04 from './mundo-04.js'
 import mundo05 from './mundo-05.js'
+import mundo06 from './mundo-06.js'
+import mundo07 from './mundo-07.js'
+import mundo08 from './mundo-08.js'
+import mundo09 from './mundo-09.js'
+import mundo10 from './mundo-10.js'
+import mundo11 from './mundo-11.js'
+import mundo12 from './mundo-12.js'
+import mundo13 from './mundo-13.js'
+import mundo14 from './mundo-14.js'
 
-const mundos = [mundo01, mundo02, mundo03, mundo04, mundo05].sort((a, b) => a.numero - b.numero)
+const mundos = [
+  mundo01,
+  mundo02,
+  mundo03,
+  mundo04,
+  mundo05,
+  mundo06,
+  mundo07,
+  mundo08,
+  mundo09,
+  mundo10,
+  mundo11,
+  mundo12,
+  mundo13,
+  mundo14,
+].sort((a, b) => a.numero - b.numero)
 
 export default mundos
 

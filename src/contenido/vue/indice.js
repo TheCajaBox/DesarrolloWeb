@@ -5,8 +5,12 @@
 // comprobaciones y los tipos de paso, no el contenido.
 
 import mundo01 from './mundo-01.js'
+import mundo02 from './mundo-02.js'
+import mundo03 from './mundo-03.js'
+import mundo04 from './mundo-04.js'
+import mundo05 from './mundo-05.js'
 
-const mundos = [mundo01].sort((a, b) => a.numero - b.numero)
+const mundos = [mundo01, mundo02, mundo03, mundo04, mundo05].sort((a, b) => a.numero - b.numero)
 
 export default mundos
 

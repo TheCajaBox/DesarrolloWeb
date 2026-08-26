@@ -6,15 +6,16 @@
 import { computed, onMounted, provide, ref, watch } from 'vue'
 import { usarTaller } from './almacen/taller.js'
 import { usarCurso } from './almacen/curso.js'
+import { usarWayne } from './almacen/wayne.js'
 import mundos from './contenido/vue/indice.js'
 import ArbolFicheros from './componentes/ArbolFicheros.vue'
-import BocadilloFlotante from './componentes/BocadilloFlotante.vue'
 import Dialogo from './componentes/Dialogo.vue'
 import Editor from './componentes/Editor.vue'
 import Mapa from './componentes/Mapa.vue'
 import PanelMundo from './componentes/PanelMundo.vue'
 import Steris from './componentes/Steris.vue'
 import VistaPreviaEscritorio from './componentes/VistaPreviaEscritorio.vue'
+import WayneCompanero from './componentes/WayneCompanero.vue'
 import { avisar, pedirTexto, preguntar } from './motor/dialogos.js'
 
 const taller = usarTaller()
@@ -51,11 +52,15 @@ const steris = ref({ termino: null, error: null })
 const explicarTermino = (t) => (steris.value = { termino: t, error: null })
 const callarASteris = () => (steris.value = { termino: null, error: null })
 
-// Wayne, en bocadillo flotante.
-const bocadillo = ref({ quien: 'wayne', texto: '' })
-function decir(quien, texto) {
-  if (bocadillo.value.texto === texto) bocadillo.value = { quien, texto: '' }
-  setTimeout(() => (bocadillo.value = { quien, texto }), 30)
+// Wayne acompañante: un almacén con memoria decide lo que dice, y el panel fijo
+// lo muestra.
+const wayne = usarWayne()
+
+// Cuenta atrás de inactividad: si pasan minutos sin avanzar, Wayne se asoma.
+let relojInactividad = null
+function reiniciarInactividad() {
+  clearTimeout(relojInactividad)
+  relojInactividad = setTimeout(() => wayne.alInactividad(), 3 * 60 * 1000)
 }
 
 async function sembrarMundo() {
@@ -66,29 +71,43 @@ onMounted(async () => {
   curso.recuperarProgreso()
   await taller.cargar()
   await sembrarMundo()
-  // Abrir App.vue de entrada: es donde ocurre casi todo.
   if (await taller.ficheros.some((f) => f.ruta === 'src/App.vue')) {
     await taller.abrir('src/App.vue')
   }
   cargando.value = false
 
-  if (curso.mundo && curso.superados === 0) {
-    decir(curso.mundo.entradilla.quien, curso.mundo.entradilla.texto)
-  }
+  // La primera vez de todas, Wayne se presenta; si no, la entradilla del mundo.
+  if (wayne.primeraVez) wayne.alEntrar()
+  else if (curso.mundo && curso.superados === 0) wayne.decirTexto(curso.mundo.entradilla.texto)
+  else wayne.alEntrar()
+
+  reiniciarInactividad()
 })
 
+// Reacciona a cada comprobación: acierto o fallo, y recuerda.
 watch(
   () => curso.resultado,
-  (nuevo) => {
-    if (nuevo?.superado && nuevo.mensaje) decir('wayne', nuevo.mensaje)
+  (nuevo, viejo) => {
+    if (!nuevo || nuevo === viejo) return
+    reiniciarInactividad()
+    if (nuevo.superado) wayne.alAcertar()
+    else if (curso.paso) wayne.alFallar(curso.paso.id)
   },
 )
+
+// Mundo terminado: lo cuenta en su memoria y dice el cierre del mundo.
 watch(
   () => curso.completo,
   (completo) => {
-    if (completo && curso.mundo) decir(curso.mundo.cierre.quien, curso.mundo.cierre.texto)
+    if (completo && curso.mundo) {
+      wayne.registrarMundoCompleto()
+      wayne.decirTexto(curso.mundo.cierre.texto)
+    }
   },
 )
+
+// Al teclear en el editor, el reloj de inactividad se reinicia.
+watch(() => taller.revision, reiniciarInactividad)
 
 const estado = computed(() => {
   if (taller.error) return { texto: taller.error, clase: 'malo' }
@@ -104,7 +123,7 @@ async function abrirMundo(numero) {
     curso.irAlMundo(destino)
     await sembrarMundo()
     pestana.value = 'leccion'
-    decir(curso.mundo.entradilla.quien, curso.mundo.entradilla.texto)
+    wayne.decirTexto(curso.mundo.entradilla.texto)
   }
   vista.value = 'taller'
 }
@@ -239,7 +258,7 @@ async function borrar(ruta) {
       </section>
     </main>
 
-    <BocadilloFlotante :quien="bocadillo.quien" :texto="bocadillo.texto" />
+    <WayneCompanero :texto="wayne.linea" />
     <Steris :termino="steris.termino" :error="steris.error" @cerrar="callarASteris" />
     <Dialogo />
   </div>

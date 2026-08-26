@@ -8,7 +8,7 @@
 
 import { defineStore } from 'pinia'
 import mundos, { mundoDespuesDe, mundoNumero } from '../contenido/mundos/indice.js'
-import { listar } from '../motor/sfv.js'
+import { listar } from '../motor/ficheros.js'
 
 export const usarMundo = defineStore('mundo', {
   state: () => ({

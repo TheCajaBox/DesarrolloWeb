@@ -2,7 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { usarTaller } from './almacen/taller.js'
 import { usarMundo } from './almacen/mundo.js'
-import mundos from './contenido/mundos/indice.js'
+import mundos, { panelDe } from './contenido/mundos/indice.js'
 import {
   guardarMundo,
   guardarPaneles,
@@ -50,8 +50,10 @@ const modoLectura = computed(() => !verEditor.value && !verDerecha.value)
 
 const columnas = computed(() => {
   if (modoLectura.value) return 'minmax(0, 1fr)'
-  // Armonía necesita sitio: un chat de 20rem es ilegible.
-  const lateral = pestana.value === 'armonia' ? '36rem' : '25rem'
+  // Cada pestaña necesita un ancho distinto: la lección es para leer, el chat
+  // de Armonía a 20rem es ilegible, y el árbol de ficheros no necesita nada.
+  const ANCHOS = { mundo: '34rem', armonia: '36rem', ficheros: '20rem' }
+  const lateral = ANCHOS[pestana.value] || '25rem'
   const resto = [verEditor.value && 'minmax(0, 1fr)', verDerecha.value && 'minmax(0, 1fr)'].filter(
     Boolean,
   )
@@ -124,6 +126,7 @@ onMounted(async () => {
   // Solo crea lo que falte. Nunca pisa lo que ya hay: el proyecto es de quien
   // lo escribe, y cambiar de mundo no puede reescribirle su web.
   if (mundo.mundo) await taller.sembrar(mundo.mundo.ficheros)
+  if (mundo.mundo) panelDerecho.value = panelDe(mundo.numero)
 
   cargando.value = false
 })
@@ -224,7 +227,17 @@ async function abrirMundo(numero) {
     decir(mundo.mundo.entradilla.quien, mundo.mundo.entradilla.texto)
   }
 
+  abrirPanelNecesario()
   vista.value = 'taller'
+}
+
+// Los enunciados dicen cosas como "mira la vista previa". Si ese panel está
+// cerrado, están hablando de algo que no se ve. Al entrar a un mundo se abre el
+// que le hace falta; después puedes cerrarlo si quieres.
+function abrirPanelNecesario() {
+  const cual = panelDe(mundo.numero)
+  panelDerecho.value = cual
+  verDerecha.value = true
 }
 
 // Lo único destructivo del taller, y es explícito: devuelve los ficheros de
@@ -353,8 +366,11 @@ async function reiniciarMundo() {
               :proyecto="taller.proyecto"
               :revision="taller.revision"
               :ancho="modoLectura"
+              :panel-visible="verDerecha"
+              :panel-necesario="panelDe(mundo.numero)"
               @cambiar-mundo="abrirMundo"
               @explicar="explicarTermino"
+              @abrir-panel="abrirPanelNecesario"
             />
           </div>
 
@@ -631,7 +647,7 @@ async function reiniciarMundo() {
 
 .pestanas {
   display: flex;
-  border-bottom: 1px solid var(--borde-suave);
+  border-bottom: 1px solid var(--borde);
   background: var(--fondo-hueco);
 }
 
@@ -639,31 +655,43 @@ async function reiniciarMundo() {
   flex: 1;
   border: none;
   border-radius: 0;
-  padding: 0.45rem 0.3rem;
-  font-size: 0.8rem;
+  padding: 0.55rem 0.4rem;
+  font-size: 0.82rem;
+  font-weight: 500;
   color: var(--texto-apagado);
   position: relative;
+  transition: color 0.18s var(--curva), background 0.18s var(--curva);
 }
 
+/* La raya inferior crece desde el centro al activarse. */
 .pestana::after {
   content: '';
   position: absolute;
   left: 50%;
   right: 50%;
-  bottom: 0;
+  bottom: -1px;
   height: 2px;
   background: var(--acento);
-  transition: left 0.22s var(--curva), right 0.22s var(--curva);
+  border-radius: 2px 2px 0 0;
+  transition: left 0.24s var(--curva), right 0.24s var(--curva);
 }
 
-.pestana:hover {
-  background: rgb(255 255 255 / 0.03);
+.pestana:hover:not(.activa) {
+  background: rgb(255 255 255 / 0.035);
   border-color: transparent;
   color: var(--texto-tenue);
 }
 
+/* La activa se distingue de verdad: fondo, color, peso y raya. Antes era una
+   rayita de dos píxeles y no se veía. */
 .pestana.activa {
   color: var(--acento);
+  font-weight: 600;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--acento) 13%, transparent),
+    color-mix(in srgb, var(--acento) 4%, transparent)
+  );
 }
 
 .pestana.activa::after {

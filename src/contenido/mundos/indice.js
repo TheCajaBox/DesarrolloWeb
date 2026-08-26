@@ -40,6 +40,20 @@ export function mundoDespuesDe(numero) {
   return indice === -1 ? null : mundos[indice + 1] || null
 }
 
+// Qué panel de la derecha necesita cada mundo para que sus pasos tengan
+// sentido. Existe porque el panel se puede cerrar: si un enunciado dice "mira
+// la vista previa" y la tienes oculta, te está hablando de algo invisible.
+//
+// Por defecto la vista previa. Solo se anota lo que se sale de eso.
+const PANELES = {
+  10: 'sql',
+  11: 'sql',
+}
+
+export function panelDe(numero) {
+  return PANELES[Number(numero)] || 'vista'
+}
+
 export const actos = [...new Set(mundos.map((mundo) => mundo.acto).filter(Boolean))]
 
 export const totalPasos = mundos.reduce((suma, mundo) => suma + mundo.pasos.length, 0)

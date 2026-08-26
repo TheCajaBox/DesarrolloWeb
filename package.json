@@ -17,7 +17,8 @@
     "bbdd:local": "wrangler d1 migrations apply sombreros --local -c wrangler.publico.jsonc",
     "bbdd:remota": "wrangler d1 migrations apply sombreros --remote -c wrangler.publico.jsonc",
     "test": "vitest run",
-    "test:mirar": "vitest"
+    "test:mirar": "vitest",
+    "escritorio": "electron taller-escritorio/main.cjs"
   },
   "dependencies": {
     "@codemirror/lang-css": "^6.3.1",
@@ -36,6 +37,7 @@
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^6.0.8",
+    "electron": "^44.0.0",
     "fake-indexeddb": "^6.2.5",
     "happy-dom": "^20.11.6",
     "vite": "^8.2.2",

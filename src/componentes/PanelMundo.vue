@@ -1,39 +1,46 @@
 <script setup>
-// El panel de la lección: dónde estás, qué toca, y la teoría de Wax.
+// El panel de la lección.
 //
-// La entradilla y el cierre ya no salen aquí: los dice Wayne en el bocadillo
-// flotante, que es lo que no roba sitio a lo que hay que leer.
+// Reordenado a propósito: **primero la teoría de Wax, después el ejercicio**.
+// Antes estaba al revés y no tenía sentido: te pedía hacer algo y la
+// explicación quedaba debajo, como una nota al pie.
+//
+// Y cada bloque tiene ahora su propio aspecto. Antes el enunciado, la lista de
+// pasos y la lección eran el mismo gris del mismo tamaño, así que no se
+// distinguía qué era teoría y qué era tarea.
 import { computed, ref, watch } from 'vue'
 import { usarMundo } from '../almacen/mundo.js'
 import { formatear } from '../motor/formato.js'
 import { marcarTerminos } from '../motor/glosario.js'
+import PasoInteractivo from './PasoInteractivo.vue'
 import waxAvatar from '../recursos/wax-avatar.webp'
 
 const props = defineProps({
   proyecto: { type: String, required: true },
-  // Sube con cada guardado. Sirve para marcar como caducado un veredicto
-  // anterior en cuanto el alumno toca algo.
   revision: { type: Number, default: 0 },
-  // En modo lectura la lección se abre sola y se lee más grande.
   ancho: { type: Boolean, default: false },
+  // Si el panel de la derecha está a la vista, y cuál necesita este mundo.
+  // Los enunciados hablan de la vista previa o de la consola SQL; si están
+  // cerradas, hay que decirlo en vez de dejar la frase colgando.
+  panelVisible: { type: Boolean, default: true },
+  panelNecesario: { type: String, default: 'vista' },
 })
 
-const emitir = defineEmits(['cambiar-mundo', 'explicar'])
+const emitir = defineEmits(['cambiar-mundo', 'explicar', 'abrir-panel'])
+
+const NOMBRE_PANEL = { vista: 'Vista previa', sql: 'SQL', esquema: 'Esquema' }
+const nombrePanel = computed(() => NOMBRE_PANEL[props.panelNecesario] || 'Resultado')
 
 const mundo = usarMundo()
-const verApunte = ref(false)
+// La lección empieza abierta: es lo primero que hay que leer, no un extra.
+const verApunte = ref(true)
 const verPista = ref(false)
 const caducado = ref(false)
 
-const apunteAbierto = computed(() => verApunte.value || props.ancho)
-// Formatear primero y marcar después: así el subrayado del glosario nunca
-// entra dentro de un bloque de código, porque ya está envuelto en <pre>.
 const apunteHtml = computed(() =>
   mundo.mundo?.apunte ? marcarTerminos(formatear(mundo.mundo.apunte.cuerpo)) : '',
 )
 
-// Delegación: los botones del glosario los pinta v-html, así que no se les
-// puede poner @click uno a uno. Se escucha en el contenedor.
 function alPinchar(evento) {
   const boton = evento.target.closest('.termino')
   if (boton) emitir('explicar', boton.dataset.termino)
@@ -47,8 +54,6 @@ async function comprobar() {
 watch(
   () => props.revision,
   () => {
-    // Solo en los pasos que dependen de los ficheros. En uno de elegir, tocar
-    // un fichero no invalida nada, y avisar de lo contrario despista.
     if (mundo.resultado && mundo.paso?.tipo !== 'eleccion') caducado.value = true
   },
 )
@@ -60,60 +65,97 @@ watch(
     caducado.value = false
   },
 )
+
+// Al cambiar de mundo, la lección vuelve a abrirse: hay teoría nueva que leer.
+watch(
+  () => mundo.numero,
+  () => {
+    verApunte.value = true
+  },
+)
 </script>
 
 <template>
   <div v-if="mundo.mundo" class="panel" :class="{ ancho }">
+    <!-- ---- Dónde estás ---- -->
     <header class="titular">
-      <h2>{{ mundo.mundo.titulo }}</h2>
-      <div class="barra" :title="`${mundo.superados} de ${mundo.pasos.length}`">
-        <span :style="{ width: `${(mundo.superados / mundo.pasos.length) * 100}%` }"></span>
+      <p class="acto">{{ mundo.mundo.acto }}</p>
+      <h2>{{ mundo.mundo.titulo.replace(/^Mundo \d+ · /, '') }}</h2>
+
+      <div class="avance">
+        <ol class="fichas" :aria-label="`${mundo.superados} de ${mundo.pasos.length} pasos`">
+          <li v-for="(paso, indice) in mundo.pasos" :key="paso.id">
+            <button
+              class="pastilla"
+              :class="{
+                activa: indice === mundo.indicePaso,
+                hecha: mundo.resultados[paso.id]?.superado,
+              }"
+              :title="paso.titulo"
+              @click="mundo.ir(indice)"
+            >
+              {{ mundo.resultados[paso.id]?.superado ? '✓' : indice + 1 }}
+            </button>
+          </li>
+        </ol>
+
+        <span class="cuenta">{{ mundo.superados }}/{{ mundo.pasos.length }}</span>
       </div>
-      <p class="avance">
-        {{ mundo.superados }} de {{ mundo.pasos.length }} pasos
-        <span v-if="mundo.sincronizado === false" class="sin-nube" title="No se está guardando en la nube">
-          · solo en este navegador
-        </span>
-      </p>
     </header>
 
-    <ol class="pasos">
-      <li v-for="(paso, indice) in mundo.pasos" :key="paso.id">
-        <button
-          class="paso"
-          :class="{ activo: indice === mundo.indicePaso, hecho: mundo.resultados[paso.id]?.superado }"
-          @click="mundo.ir(indice)"
-        >
-          <span class="marca">{{ mundo.resultados[paso.id]?.superado ? '✓' : indice + 1 }}</span>
-          <span class="nombre">{{ paso.titulo }}</span>
-        </button>
-      </li>
-    </ol>
+    <!-- ---- PRIMERO: la teoría ---- -->
+    <section v-if="mundo.mundo.apunte" class="teoria" :class="{ plegada: !verApunte }">
+      <header class="cabecera-teoria">
+        <img :src="waxAvatar" alt="" class="cara" width="44" height="44" />
 
-    <section v-if="mundo.paso" class="actual">
+        <div class="quien">
+          <p class="etiqueta">Lección de Wax</p>
+          <h3>{{ mundo.mundo.apunte.titulo }}</h3>
+        </div>
+
+        <button class="plegar" :aria-expanded="verApunte" @click="verApunte = !verApunte">
+          {{ verApunte ? 'Ocultar' : 'Leer' }}
+        </button>
+      </header>
+
+      <div v-if="verApunte" class="cuerpo-teoria" v-html="apunteHtml" @click="alPinchar"></div>
+
+      <button v-else class="reabrir" @click="verApunte = true">
+        La lección está plegada. Ábrela cuando quieras releerla.
+      </button>
+    </section>
+
+    <!-- ---- DESPUÉS: el ejercicio ---- -->
+    <section v-if="mundo.paso" class="ejercicio">
+      <header class="cabecera-ejercicio">
+        <p class="etiqueta">
+          Ejercicio · paso {{ mundo.indicePaso + 1 }} de {{ mundo.pasos.length }}
+        </p>
+        <h3>{{ mundo.paso.titulo }}</h3>
+      </header>
+
+      <!-- Si el panel que hace falta está cerrado, el enunciado habla de algo
+           invisible. Mejor decirlo con un botón que arregle. -->
+      <button v-if="!panelVisible" class="falta-panel" @click="emitir('abrir-panel')">
+        <span class="icono" aria-hidden="true">◧</span>
+        <span>
+          Tienes cerrado el panel <strong>{{ nombrePanel }}</strong>, y este paso te va a hablar
+          de él. <em>Ábrelo →</em>
+        </span>
+      </button>
+
       <!-- El enunciado lleva marcado a propósito (etiquetas en <code>), y es
            contenido nuestro, no del alumno. -->
       <p class="enunciado" v-html="mundo.paso.enunciado"></p>
 
-      <!-- Pasos de entender, no de teclear. No todo puede ser picar código. -->
-      <fieldset v-if="mundo.paso.tipo === 'eleccion'" class="opciones">
-        <legend class="oculto">Elige una respuesta</legend>
-        <label
-          v-for="(opcion, indice) in mundo.paso.opciones"
-          :key="indice"
-          class="opcion"
-          :class="{ elegida: mundo.elecciones[mundo.paso.id] === indice }"
-        >
-          <input
-            type="radio"
-            :name="`opcion-${mundo.paso.id}`"
-            :value="indice"
-            :checked="mundo.elecciones[mundo.paso.id] === indice"
-            @change="mundo.elegir(mundo.paso.id, indice)"
-          />
-          <span>{{ opcion.texto }}</span>
-        </label>
-      </fieldset>
+      <!-- Pasos de entender, no de teclear: elegir, cierto o falso, ordenar,
+           rellenar huecos, emparejar. -->
+      <PasoInteractivo
+        v-if="mundo.paso.tipo && mundo.paso.tipo !== 'codigo'"
+        :paso="mundo.paso"
+        :respuesta="mundo.elecciones[mundo.paso.id] ?? null"
+        @responder="mundo.elegir(mundo.paso.id, $event)"
+      />
 
       <div class="acciones">
         <button class="principal" :disabled="mundo.comprobando" @click="comprobar">
@@ -126,14 +168,19 @@ watch(
 
       <p v-if="verPista && mundo.paso.pista" class="pista" v-html="mundo.paso.pista"></p>
 
-      <p
-        v-if="mundo.resultado"
-        class="veredicto"
-        :class="{ bien: mundo.resultado.superado, mal: !mundo.resultado.superado, viejo: caducado }"
-      >
-        {{ mundo.resultado.mensaje }}
-        <span v-if="caducado" class="nota">— has cambiado algo, vuelve a comprobar</span>
-      </p>
+      <Transition name="veredicto">
+        <p
+          v-if="mundo.resultado"
+          class="veredicto"
+          :class="{ bien: mundo.resultado.superado, mal: !mundo.resultado.superado, viejo: caducado }"
+        >
+          <span class="senal">{{ mundo.resultado.superado ? '✓' : '·' }}</span>
+          <span>
+            {{ mundo.resultado.mensaje }}
+            <em v-if="caducado"> — has cambiado algo, vuelve a comprobar</em>
+          </span>
+        </p>
+      </Transition>
 
       <button
         v-if="mundo.resultado?.superado && mundo.hayMasPasos && !caducado"
@@ -144,26 +191,17 @@ watch(
       </button>
     </section>
 
+    <!-- ---- Cierre del mundo ---- -->
     <section v-if="mundo.completo" class="cierre">
-      <p class="enhorabuena">Mundo completo.</p>
+      <p class="enhorabuena">Mundo completo</p>
       <button
         v-if="mundo.siguienteMundo"
         class="principal"
         @click="emitir('cambiar-mundo', mundo.siguienteMundo.numero)"
       >
-        {{ mundo.siguienteMundo.titulo }} →
+        {{ mundo.siguienteMundo.titulo.replace(/^Mundo \d+ · /, '') }} →
       </button>
       <p v-else class="ultimo">Se acabó lo que hay escrito. Vuelve cuando haya más mundos.</p>
-    </section>
-
-    <section v-if="mundo.mundo.apunte" class="apunte">
-      <button class="cabecera-apunte" :aria-expanded="apunteAbierto" @click="verApunte = !verApunte">
-        <img :src="waxAvatar" alt="" class="cara" width="28" height="28" />
-        <span class="titulo-apunte">{{ mundo.mundo.apunte.titulo }}</span>
-        <span v-if="!ancho" class="flecha">{{ apunteAbierto ? '▾' : '▸' }}</span>
-      </button>
-
-      <div v-if="apunteAbierto" class="cuerpo-apunte" v-html="apunteHtml" @click="alPinchar"></div>
     </section>
   </div>
 </template>
@@ -172,351 +210,235 @@ watch(
 .panel {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
-  padding: 0.9rem 0.9rem 3rem;
+  gap: 1.3rem;
+  padding: 1.1rem 1.1rem 3rem;
 }
 
 .panel.ancho {
-  padding: 1.6rem 1.4rem 4rem;
-  gap: 1.4rem;
+  padding: 2rem 1.6rem 4rem;
+}
+
+/* ---- Dónde estás ---- */
+
+.acto {
+  margin: 0;
+  font-size: 0.64rem;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: var(--acento);
 }
 
 .titular h2 {
-  margin: 0 0 0.4rem;
-  font-size: 1rem;
+  margin: 0.2rem 0 0.7rem;
+  font-family: var(--titulos);
+  font-size: 1.4rem;
+  font-weight: 700;
+  line-height: 1.15;
   color: var(--texto);
 }
 
 .panel.ancho .titular h2 {
-  font-size: 1.35rem;
-}
-
-.barra {
-  height: 3px;
-  background: var(--borde-suave);
-  border-radius: 2px;
-  overflow: hidden;
-}
-
-.barra span {
-  display: block;
-  height: 100%;
-  background: var(--verde);
-  transition: width 0.3s ease;
+  font-size: 1.9rem;
 }
 
 .avance {
-  margin: 0.3rem 0 0;
-  font-size: 0.75rem;
-  color: var(--texto-apagado);
-}
-
-.sin-nube {
-  color: var(--oxido);
-}
-
-.pasos {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
-}
-
-.paso {
   display: flex;
   align-items: center;
-  gap: 0.55rem;
-  width: 100%;
-  border: none;
-  padding: 0.32rem 0.45rem;
-  text-align: left;
-  font-size: 0.85rem;
-  color: var(--texto-apagado);
-  border-radius: var(--redondeo);
+  gap: 0.7rem;
 }
 
-.paso:hover {
-  background: color-mix(in srgb, var(--acento) 7%, transparent);
-  border-color: transparent;
-  color: var(--texto);
+.fichas {
+  list-style: none;
+  display: flex;
+  gap: 0.3rem;
+  margin: 0;
+  padding: 0;
 }
 
-.paso.activo {
-  color: var(--texto);
-  background: color-mix(in srgb, var(--acento) 11%, transparent);
-}
-
-.paso.hecho .marca {
-  color: var(--verde);
-  border-color: var(--verde);
-}
-
-.marca {
-  flex: none;
-  width: 1.3rem;
-  height: 1.3rem;
+/* Los pasos, en pastillas horizontales. La lista vertical de antes ocupaba
+   media pantalla y competía con la lección por la atención. */
+.pastilla {
+  width: 1.75rem;
+  height: 1.75rem;
   display: grid;
   place-items: center;
-  border: 1px solid var(--borde);
-  border-radius: 50%;
-  font-size: 0.7rem;
-}
-
-.actual {
-  display: flex;
-  flex-direction: column;
-  gap: 0.65rem;
-  border-top: 1px solid var(--borde-suave);
-  padding-top: 0.9rem;
-}
-
-.enunciado {
-  margin: 0;
-  font-size: 0.9rem;
-  line-height: 1.6;
-}
-
-.panel.ancho .enunciado {
-  font-size: 1rem;
-}
-
-.enunciado :deep(code),
-.pista :deep(code) {
-  background: var(--fondo-hueco);
-  padding: 0.1em 0.35em;
-  border-radius: 3px;
-  color: var(--acento);
-}
-
-.opciones {
-  border: none;
-  margin: 0;
   padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-}
-
-.oculto {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-}
-
-.opcion {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.55rem;
-  padding: 0.5rem 0.65rem;
-  border: 1px solid var(--borde-suave);
-  border-radius: var(--redondeo);
-  background: var(--fondo-hueco);
-  font-size: 0.87rem;
-  line-height: 1.5;
-  cursor: pointer;
-  transition: border-color 0.15s, background 0.15s;
-}
-
-.opcion:hover {
-  border-color: var(--laton-oscuro);
-}
-
-.opcion.elegida {
-  border-color: var(--acento);
-  background: color-mix(in srgb, var(--acento) 10%, transparent);
-}
-
-.opcion input {
-  margin-top: 0.25rem;
-  accent-color: var(--acento);
-  flex: none;
-}
-
-.acciones {
-  display: flex;
-  gap: 0.4rem;
-  align-items: center;
-}
-
-.mini {
-  border: none;
-  font-size: 0.78rem;
+  border-radius: 50%;
+  border-color: var(--borde);
+  font-size: 0.76rem;
   color: var(--texto-apagado);
-  padding: 0.35rem 0.4rem;
 }
 
-.mini:hover {
+.pastilla:hover {
+  border-color: var(--acento);
   color: var(--acento);
-  background: transparent;
 }
 
-.pista {
-  margin: 0;
-  font-size: 0.83rem;
-  color: var(--texto-tenue);
-  border-left: 2px solid var(--laton-oscuro);
-  padding-left: 0.65rem;
-}
-
-.veredicto {
-  margin: 0;
-  font-size: 0.86rem;
-  border-left: 3px solid var(--borde);
-  padding-left: 0.65rem;
-}
-
-.veredicto.bien {
+.pastilla.hecha {
   border-color: var(--verde);
   color: var(--verde);
 }
 
-.veredicto.mal {
-  border-color: var(--oxido);
-  color: var(--texto-tenue);
+.pastilla.activa {
+  border-color: var(--acento);
+  color: var(--acento);
+  background: color-mix(in srgb, var(--acento) 14%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--acento) 12%, transparent);
 }
 
-.veredicto.viejo {
-  opacity: 0.55;
-}
-
-.nota {
+.cuenta {
+  font-size: 0.74rem;
   color: var(--texto-apagado);
-  font-style: italic;
+  font-variant-numeric: tabular-nums;
 }
 
-.siguiente {
-  align-self: flex-start;
+/* ---- La teoría ---- */
+
+.teoria {
+  border: 1px solid var(--borde);
+  border-left: 3px solid var(--oxido);
+  border-radius: var(--redondeo);
+  background: linear-gradient(180deg, var(--fondo-alto), var(--fondo-panel));
+  overflow: hidden;
 }
 
-.cierre {
-  display: flex;
-  flex-direction: column;
-  gap: 0.6rem;
-  align-items: flex-start;
-  border-top: 1px solid var(--borde-suave);
-  padding-top: 0.9rem;
-}
-
-.enhorabuena {
-  margin: 0;
-  color: var(--verde);
-  font-size: 0.9rem;
-}
-
-.ultimo {
-  margin: 0;
-  font-size: 0.83rem;
-  color: var(--texto-apagado);
-  font-style: italic;
-}
-
-.apunte {
-  border-top: 1px solid var(--borde-suave);
-  padding-top: 0.8rem;
-}
-
-.cabecera-apunte {
+.cabecera-teoria {
   display: flex;
   align-items: center;
-  gap: 0.55rem;
-  width: 100%;
-  border: none;
-  padding: 0.25rem 0;
-  text-align: left;
+  gap: 0.8rem;
+  padding: 0.8rem 0.95rem;
+  background: rgb(192 104 64 / 0.07);
+  border-bottom: 1px solid var(--borde-suave);
 }
 
-.cabecera-apunte:hover {
-  background: transparent;
-  border-color: transparent;
+.teoria.plegada .cabecera-teoria {
+  border-bottom: none;
 }
 
 .cara {
   flex: none;
-  width: 1.75rem;
-  height: 1.75rem;
+  width: 2.7rem;
+  height: 2.7rem;
   border-radius: 50%;
-  border: 1px solid var(--oxido);
+  border: 2px solid var(--oxido);
   object-fit: cover;
 }
 
-.titulo-apunte {
+.quien {
   flex: 1;
-  font-size: 0.87rem;
+  min-width: 0;
+}
+
+.etiqueta {
+  margin: 0;
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
   color: var(--oxido);
 }
 
-.cabecera-apunte:hover .titulo-apunte {
-  color: var(--acento);
+.cabecera-teoria h3 {
+  margin: 0.1rem 0 0;
+  font-family: var(--titulos);
+  font-size: 1.05rem;
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--texto);
 }
 
-.flecha {
+.plegar {
+  flex: none;
+  font-size: 0.74rem;
   color: var(--texto-apagado);
-  font-size: 0.75rem;
+  border-color: transparent;
 }
 
-.cuerpo-apunte {
-  margin-top: 0.7rem;
-  font-size: 0.87rem;
-  line-height: 1.7;
-  color: var(--texto-tenue);
+.plegar:hover {
+  border-color: var(--oxido);
+  color: var(--oxido);
+  background: none;
 }
 
-.panel.ancho .cuerpo-apunte {
-  font-size: 1rem;
+.cuerpo-teoria {
+  padding: 1rem 1.1rem 1.1rem;
+  /* Tipografía de leer, no de interfaz: más grande, más aire entre líneas y
+     una columna con un ancho cómodo. */
+  font-size: 0.97rem;
   line-height: 1.75;
+  color: var(--texto-tenue);
+  max-width: 42rem;
 }
 
-.cuerpo-apunte :deep(p) {
-  margin: 0 0 0.9rem;
+.panel.ancho .cuerpo-teoria {
+  font-size: 1.05rem;
+  line-height: 1.8;
 }
 
-.cuerpo-apunte :deep(strong) {
+.reabrir {
+  display: block;
+  width: 100%;
+  border: none;
+  border-radius: 0;
+  padding: 0.6rem 1rem 0.8rem;
+  text-align: left;
+  font-size: 0.8rem;
+  font-style: italic;
+  color: var(--texto-apagado);
+}
+
+.reabrir:hover {
+  background: rgb(192 104 64 / 0.06);
+  color: var(--oxido);
+}
+
+.cuerpo-teoria :deep(p) {
+  margin: 0 0 1rem;
+}
+
+.cuerpo-teoria :deep(strong) {
   color: var(--texto);
   font-weight: 600;
 }
 
-.cuerpo-apunte :deep(code) {
-  background: var(--fondo-hueco);
-  padding: 0.1em 0.35em;
-  border-radius: 3px;
-  color: var(--acento);
-  font-size: 0.9em;
-}
-
-.cuerpo-apunte :deep(pre) {
+.cuerpo-teoria :deep(code) {
   background: var(--fondo-hueco);
   border: 1px solid var(--borde-suave);
-  border-radius: var(--redondeo);
-  padding: 0.7rem 0.85rem;
-  overflow-x: auto;
-  margin: 0 0 0.9rem;
+  padding: 0.08em 0.35em;
+  border-radius: 3px;
+  color: var(--laton);
+  font-size: 0.88em;
 }
 
-.cuerpo-apunte :deep(pre code) {
+.cuerpo-teoria :deep(pre) {
+  background: var(--fondo-hueco);
+  border: 1px solid var(--borde-suave);
+  border-left: 2px solid var(--oxido);
+  border-radius: var(--redondeo);
+  padding: 0.8rem 0.95rem;
+  overflow-x: auto;
+  margin: 0 0 1rem;
+}
+
+.cuerpo-teoria :deep(pre code) {
   background: none;
+  border: none;
   padding: 0;
   color: var(--texto-tenue);
-  font-size: 0.85em;
-  line-height: 1.5;
+  font-size: 0.86em;
+  line-height: 1.6;
 }
 
-.cuerpo-apunte :deep(ul),
-.cuerpo-apunte :deep(ol) {
-  margin: 0 0 0.9rem;
-  padding-left: 1.3rem;
+.cuerpo-teoria :deep(ul),
+.cuerpo-teoria :deep(ol) {
+  margin: 0 0 1rem;
+  padding-left: 1.4rem;
 }
 
-.cuerpo-apunte :deep(li) {
-  margin-bottom: 0.35rem;
+.cuerpo-teoria :deep(li) {
+  margin-bottom: 0.45rem;
 }
 
-/* Los términos del glosario. Subrayado de puntos, como una nota al pie: se ve
-   que hay algo, pero no compite con el texto ni parece un enlace. */
-.cuerpo-apunte :deep(.termino) {
+.cuerpo-teoria :deep(.termino) {
   border: none;
   border-radius: 0;
   padding: 0;
@@ -524,12 +446,196 @@ watch(
   color: inherit;
   background: none;
   text-decoration: underline dotted var(--verde);
-  text-underline-offset: 0.2em;
+  text-underline-offset: 0.22em;
   cursor: help;
 }
 
-.cuerpo-apunte :deep(.termino:hover) {
+.cuerpo-teoria :deep(.termino:hover) {
   color: var(--verde);
-  background: rgb(127 160 90 / 0.1);
+  background: rgb(134 169 94 / 0.12);
+}
+
+/* ---- El ejercicio ---- */
+
+.ejercicio {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  border: 1px solid color-mix(in srgb, var(--acento) 35%, var(--borde));
+  border-radius: var(--redondeo);
+  background: color-mix(in srgb, var(--acento) 4%, var(--fondo-panel));
+  padding: 1rem 1.1rem 1.1rem;
+}
+
+.cabecera-ejercicio .etiqueta {
+  color: var(--acento);
+}
+
+.cabecera-ejercicio h3 {
+  margin: 0.15rem 0 0;
+  font-family: var(--titulos);
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: var(--texto);
+}
+
+.falta-panel {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  width: 100%;
+  text-align: left;
+  border-color: color-mix(in srgb, var(--oxido) 45%, transparent);
+  background: rgb(192 104 64 / 0.09);
+  padding: 0.6rem 0.75rem;
+  font-size: 0.86rem;
+  line-height: 1.5;
+  color: var(--texto-tenue);
+}
+
+.falta-panel:hover {
+  border-color: var(--oxido);
+  background: rgb(192 104 64 / 0.16);
+}
+
+.falta-panel .icono {
+  flex: none;
+  color: var(--oxido);
+}
+
+.falta-panel strong {
+  color: var(--texto);
+}
+
+.falta-panel em {
+  color: var(--oxido);
+  font-style: normal;
+  white-space: nowrap;
+}
+
+.enunciado {
+  margin: 0;
+  font-size: 0.98rem;
+  line-height: 1.65;
+  color: var(--texto);
+  max-width: 42rem;
+}
+
+.enunciado :deep(code),
+.pista :deep(code) {
+  background: var(--fondo-hueco);
+  border: 1px solid var(--borde-suave);
+  padding: 0.08em 0.35em;
+  border-radius: 3px;
+  color: var(--acento);
+  font-size: 0.88em;
+}
+
+.acciones {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.acciones .principal {
+  font-size: 0.95rem;
+  padding: 0.45rem 1.1rem;
+}
+
+.mini {
+  border: none;
+  font-size: 0.8rem;
+  color: var(--texto-apagado);
+  padding: 0.35rem 0.4rem;
+}
+
+.mini:hover {
+  color: var(--acento);
+  background: none;
+}
+
+.pista {
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.55;
+  color: var(--texto-tenue);
+  border-left: 2px solid var(--acento);
+  padding-left: 0.7rem;
+}
+
+.veredicto {
+  display: flex;
+  gap: 0.6rem;
+  margin: 0;
+  font-size: 0.92rem;
+  line-height: 1.55;
+  border-radius: var(--redondeo);
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--borde-suave);
+  background: var(--fondo-hueco);
+}
+
+.senal {
+  flex: none;
+  font-weight: 700;
+}
+
+.veredicto.bien {
+  border-color: color-mix(in srgb, var(--verde) 45%, transparent);
+  background: rgb(134 169 94 / 0.09);
+  color: var(--verde);
+}
+
+.veredicto.mal {
+  border-color: color-mix(in srgb, var(--oxido) 40%, transparent);
+  color: var(--texto-tenue);
+}
+
+.veredicto.mal .senal {
+  color: var(--oxido);
+}
+
+.veredicto.viejo {
+  opacity: 0.55;
+}
+
+.veredicto em {
+  color: var(--texto-apagado);
+}
+
+.siguiente {
+  align-self: flex-start;
+}
+
+.veredicto-enter-active {
+  animation: asomar-abajo 0.28s var(--curva) both;
+}
+
+/* ---- Cierre ---- */
+
+.cierre {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  align-items: flex-start;
+  border: 1px solid color-mix(in srgb, var(--verde) 40%, transparent);
+  border-radius: var(--redondeo);
+  background: rgb(134 169 94 / 0.07);
+  padding: 0.9rem 1rem;
+}
+
+.enhorabuena {
+  margin: 0;
+  font-family: var(--titulos);
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--verde);
+}
+
+.ultimo {
+  margin: 0;
+  font-size: 0.86rem;
+  color: var(--texto-apagado);
+  font-style: italic;
 }
 </style>

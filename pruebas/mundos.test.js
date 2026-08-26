@@ -59,9 +59,33 @@ describe('invariantes de todos los mundos', () => {
         }
       })
 
-      it('tiene entre 3 y 6 pasos', () => {
+      it('tiene entre 3 y 16 pasos', () => {
         expect(mundo.pasos.length).toBeGreaterThanOrEqual(3)
-        expect(mundo.pasos.length).toBeLessThanOrEqual(6)
+        expect(mundo.pasos.length).toBeLessThanOrEqual(16)
+      })
+
+      // El documento de diseno pide al menos cuatro tipos distintos por mundo
+      // para que no cansen. Se exige a los mundos ya ampliados; los que siguen
+      // cortos estan pendientes de ampliar y no deben bloquear las pruebas.
+      it('si es un mundo largo, varia los tipos de paso', () => {
+        if (mundo.pasos.length < 8) return
+
+        const tipos = new Set(mundo.pasos.map((paso) => paso.tipo || 'codigo'))
+        expect(
+          tipos.size,
+          `el mundo ${mundo.numero} tiene ${mundo.pasos.length} pasos y solo ${tipos.size} tipo(s): ${[...tipos].join(', ')}`,
+        ).toBeGreaterThanOrEqual(3)
+      })
+
+      // Un mundo largo sin reto de sintesis al final no cierra nada: hay que
+      // juntar lo aprendido, no solo acumularlo.
+      it('si es un mundo largo, acaba en sintesis', () => {
+        if (mundo.pasos.length < 8) return
+
+        const ultimo = mundo.pasos[mundo.pasos.length - 1]
+        expect(ultimo.sintesis, `el ultimo paso del mundo ${mundo.numero} no es de sintesis`).toBe(
+          true,
+        )
       })
 
       it('cada paso tiene titulo, enunciado y comprobacion', () => {

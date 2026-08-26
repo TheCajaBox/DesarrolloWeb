@@ -3,7 +3,10 @@
 // esto es la capa que la interfaz consulta.
 
 import { defineStore } from 'pinia'
-import * as sfv from '../motor/sfv.js'
+// Los ficheros van por el adaptador, que elige disco real (escritorio) o el
+// sistema virtual (navegador). Se mantiene el nombre `sfv` para no tocar el
+// resto del fichero.
+import * as sfv from '../motor/ficheros.js'
 
 const RETARDO_GUARDADO_MS = 400
 // La subida a la nube va mucho más espaciada que el guardado local: escribir en

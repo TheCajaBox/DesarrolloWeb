@@ -138,10 +138,11 @@ async function preguntar() {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: 0.8rem;
+  /* Con 0.8rem el texto quedaba pegado al filo del panel y se leía apretado. */
+  padding: 1.2rem 1.2rem 1.6rem;
   display: flex;
   flex-direction: column;
-  gap: 0.7rem;
+  gap: 1.1rem;
 }
 
 .entrada {
@@ -179,8 +180,8 @@ async function preguntar() {
 
 .entrada-texto {
   display: flex;
-  gap: 0.35rem;
-  padding: 0.5rem;
+  gap: 0.5rem;
+  padding: 0.85rem 1.2rem 1rem;
   border-top: 1px solid var(--borde-suave);
   background: var(--fondo-hueco);
 }

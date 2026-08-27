@@ -3,7 +3,7 @@
 // web (mapa, panel de lección, tipos de paso, Steris, Wayne) y los conecta al
 // almacén de escritorio (contenido Vue, progreso local) y a los ficheros reales
 // del proyecto de la alumna.
-import { computed, onMounted, provide, ref, watch } from 'vue'
+import { computed, onErrorCaptured, onMounted, provide, ref, watch } from 'vue'
 import { usarTaller } from './almacen/taller.js'
 import { usarCurso } from './almacen/curso.js'
 import { usarWayne } from './almacen/wayne.js'
@@ -30,6 +30,84 @@ provide('almacenCurso', curso)
 const cargando = ref(true)
 const vista = ref('mapa')
 const pestana = ref('leccion')
+
+// Si un panel se rompe, se queda roto ÉL, no la aplicación: el error se para
+// aquí y el resto (mapa, lección, guardado) sigue respondiendo sin recargar.
+onErrorCaptured((error, _instancia, donde) => {
+  console.error(`[taller] un panel ha fallado (${donde}):`, error)
+  return false
+})
+
+// ---- Los anchos de las tres columnas ----
+//
+// Antes eran fijos, y con una lección larga el panel quedaba angosto sin que
+// se pudiera hacer nada. Ahora se arrastran las manillas, como en cualquier
+// editor, y el ancho elegido se recuerda.
+const CLAVE_ANCHOS = 'sombrero-anchos'
+const LIMITES = { lateral: [320, 900], derecha: [300, 1000] }
+
+// Por defecto se reparte a lo ancho de la ventana, no con números fijos: con
+// 520 y 620 clavados, en una pantalla de 1280 al editor le quedaban 126px.
+function porDefecto() {
+  const ancho = typeof window === 'undefined' ? 1440 : window.innerWidth
+  const entre = (minimo, parte, maximo) => Math.round(Math.min(maximo, Math.max(minimo, ancho * parte)))
+  return { lateral: entre(340, 0.27, 560), derecha: entre(300, 0.3, 620) }
+}
+
+function leerAnchos() {
+  const base = porDefecto()
+  try {
+    const guardado = JSON.parse(localStorage.getItem(CLAVE_ANCHOS) || '{}')
+    return {
+      lateral: Number(guardado.lateral) || base.lateral,
+      derecha: Number(guardado.derecha) || base.derecha,
+    }
+  } catch {
+    return base
+  }
+}
+
+const anchos = ref(leerAnchos())
+const arrastrando = ref(null)
+
+// El centro nunca baja de 24rem: si las otras dos columnas se pasan de
+// anchas, se recortan ellas y no el editor.
+const columnas = computed(
+  () =>
+    `minmax(0, ${anchos.value.lateral}px) 7px minmax(24rem, 1fr) 7px minmax(0, ${anchos.value.derecha}px)`,
+)
+
+function arrastrar(cual, evento) {
+  evento.preventDefault()
+  arrastrando.value = cual
+
+  const desdeX = evento.clientX
+  const inicial = anchos.value[cual]
+  const [minimo, maximo] = LIMITES[cual]
+
+  const mover = (e) => {
+    // La columna de la derecha crece hacia la izquierda: el signo se invierte.
+    const avance = cual === 'lateral' ? e.clientX - desdeX : desdeX - e.clientX
+    anchos.value = {
+      ...anchos.value,
+      [cual]: Math.min(maximo, Math.max(minimo, inicial + avance)),
+    }
+  }
+
+  const soltar = () => {
+    arrastrando.value = null
+    window.removeEventListener('pointermove', mover)
+    window.removeEventListener('pointerup', soltar)
+    try {
+      localStorage.setItem(CLAVE_ANCHOS, JSON.stringify(anchos.value))
+    } catch {
+      /* sin persistencia; vale para esta sesión */
+    }
+  }
+
+  window.addEventListener('pointermove', mover)
+  window.addEventListener('pointerup', soltar)
+}
 
 // El acento cambia con el acto, como en el taller web.
 const ACENTOS = {
@@ -276,7 +354,12 @@ async function borrar(ruta) {
 
     <Glosario v-else-if="vista === 'glosario'" class="entra" @volver="vista = 'mapa'" />
 
-    <main v-else class="paneles">
+    <main
+      v-else
+      class="paneles"
+      :class="{ arrastrando: Boolean(arrastrando) }"
+      :style="{ gridTemplateColumns: columnas }"
+    >
       <aside class="lateral">
         <nav class="pestanas">
           <button class="pestana" :class="{ activa: pestana === 'leccion' }" @click="pestana = 'leccion'">
@@ -321,6 +404,12 @@ async function borrar(ruta) {
         </div>
       </aside>
 
+      <div
+        class="manilla"
+        title="Arrastra para ensanchar la lección"
+        @pointerdown="arrastrar('lateral', $event)"
+      ></div>
+
       <section class="centro">
         <div class="tira">{{ taller.rutaActiva || 'sin fichero' }}</div>
         <Editor
@@ -330,6 +419,12 @@ async function borrar(ruta) {
           @escribir="taller.escribir($event)"
         />
       </section>
+
+      <div
+        class="manilla"
+        title="Arrastra para ensanchar la vista previa"
+        @pointerdown="arrastrar('derecha', $event)"
+      ></div>
 
       <section class="derecha">
         <VistaPreviaEscritorio />
@@ -473,17 +568,49 @@ async function borrar(ruta) {
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: 30rem minmax(0, 1fr) minmax(0, 1fr);
+  /* Las columnas las pone el estilo en línea (son arrastrables). */
   /* La única fila mide lo que quede de ventana, nunca lo que pida el
      contenido: cada columna hace su propio scroll por dentro. */
   grid-template-rows: minmax(0, 1fr);
 }
 
+/* Mientras se arrastra una manilla, ni se selecciona texto ni el iframe de la
+   vista previa se come el puntero. */
+.paneles.arrastrando {
+  user-select: none;
+  cursor: col-resize;
+}
+
+.paneles.arrastrando .derecha {
+  pointer-events: none;
+}
+
+.manilla {
+  cursor: col-resize;
+  background: var(--borde);
+  transition: background 0.15s var(--curva);
+  position: relative;
+}
+
+/* La zona sensible es más ancha que la línea que se ve: agarrar 1px es un
+   suplicio. */
+.manilla::after {
+  content: '';
+  position: absolute;
+  inset: 0 -4px;
+}
+
+.manilla:hover,
+.paneles.arrastrando .manilla {
+  background: var(--laton);
+}
+
+/* Sin border-right: ahora el separador es la manilla arrastrable. */
 .lateral {
   display: flex;
   flex-direction: column;
   min-height: 0;
-  border-right: 1px solid var(--borde);
+  min-width: 0;
   background: var(--fondo-panel);
 }
 
@@ -549,7 +676,6 @@ async function borrar(ruta) {
   flex-direction: column;
   min-width: 0;
   min-height: 0;
-  border-right: 1px solid var(--borde);
 }
 .tira {
   padding: 0.35rem 0.8rem;

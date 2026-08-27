@@ -14,6 +14,8 @@ const props = defineProps({
 })
 
 const parpadeo = ref(false)
+// Se puede plegar: cuando estorba, se queda solo el retrato. Un clic y vuelve.
+const plegado = ref(false)
 
 watch(
   () => props.texto,
@@ -31,13 +33,17 @@ watch(
 </script>
 
 <template>
-  <aside class="wayne" :class="{ dice: parpadeo }">
-    <div class="retrato">
+  <aside class="wayne" :class="{ dice: parpadeo, plegado }">
+    <button
+      class="retrato"
+      :title="plegado ? 'Que Wayne vuelva a hablar' : 'Callar a Wayne (sigue ahí)'"
+      @click="plegado = !plegado"
+    >
       <img :src="wayneAvatar" alt="Wayne" width="52" height="52" />
       <span class="chapa">Wayne</span>
-    </div>
+    </button>
 
-    <div class="globo">
+    <div v-if="!plegado" class="globo">
       <!-- El texto es siempre el prop actual (sin máquina de estados de
            Transition, que con cambios rápidos al arrancar se quedaba atascada
            mostrando la primera línea). La animación de "ha dicho algo nuevo" la
@@ -48,21 +54,29 @@ watch(
 </template>
 
 <style scoped>
+/* Abajo a la DERECHA: en la izquierda tapaba el formulario de Armonía y el
+   final de la lección. Aquí queda sobre la vista previa, que casi siempre
+   tiene aire, y el retrato se puede pulsar para plegarlo. */
 .wayne {
   position: fixed;
-  left: 1rem;
+  right: 1rem;
   bottom: 1rem;
   z-index: 50;
   display: flex;
+  flex-direction: row-reverse;
   align-items: flex-end;
   gap: 0.6rem;
   max-width: min(26rem, calc(100vw - 2rem));
-  pointer-events: none;
 }
 
 .retrato {
   position: relative;
   flex: none;
+  border: none;
+  padding: 0;
+  background: none;
+  cursor: pointer;
+  line-height: 0;
 }
 
 .retrato img {
@@ -100,28 +114,30 @@ watch(
   position: relative;
   background: var(--fondo-panel);
   border: 1px solid var(--borde);
-  border-bottom-left-radius: 0.2rem;
   border-radius: 0.9rem;
-  padding: 0.6rem 0.8rem;
+  border-bottom-right-radius: 0.2rem;
+  padding: 0.7rem 0.9rem;
   box-shadow: var(--sombra);
   transition: border-color 0.3s var(--curva);
+  /* El globo no roba clics a lo que haya debajo (la vista previa). */
+  pointer-events: none;
 }
 
 .wayne.dice .globo {
   border-color: var(--laton-oscuro);
 }
 
-/* El pico del bocadillo, hacia el retrato. */
+/* El pico del bocadillo, hacia el retrato (que ahora está a la derecha). */
 .globo::before {
   content: '';
   position: absolute;
-  left: -6px;
+  right: -6px;
   bottom: 0.8rem;
   width: 11px;
   height: 11px;
   background: var(--fondo-panel);
-  border-left: 1px solid var(--borde);
-  border-bottom: 1px solid var(--borde);
+  border-right: 1px solid var(--borde);
+  border-top: 1px solid var(--borde);
   transform: rotate(45deg);
 }
 

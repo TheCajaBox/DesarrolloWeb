@@ -1,14 +1,10 @@
 <script setup>
-// Este es App.vue, el componente principal. Todo lo que ves en la página sale
-// de aqui (y de los componentes que este vaya usando).
-//
-// Un componente tiene tres partes: el bloque script (la logica, JavaScript),
-// el bloque template (lo que se ve, HTML) y el bloque style (como se ve, CSS).
 </script>
 
 <template>
   <main>
-    <h1>No quiero esto</h1>
+    <h1>Sombreros que merecen la pena</h1>
+    <p>Una colección pequeña y con muy poco criterio.</p>
   </main>
 </template>
 

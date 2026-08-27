@@ -65,12 +65,9 @@ onBeforeUnmount(() => window.removeEventListener('keydown', alPulsarTecla))
 
 <style scoped>
 .novedades {
-  position: fixed;
-  left: 1.2rem;
-  bottom: 1.2rem;
-  z-index: 60;
+  /* La coloca la columna de avisos del shell, no este componente. */
   width: min(30rem, calc(100vw - 2.4rem));
-  max-height: min(30rem, calc(100vh - 6rem));
+  max-height: min(26rem, calc(100vh - 12rem));
   display: flex;
   flex-direction: column;
   background: var(--fondo-panel);

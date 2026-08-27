@@ -291,6 +291,11 @@ function crearVentana({ enBlanco = false } = {}) {
 //
 // Sin interrumpir: nada de ventanas modales a mitad de una lección. Se avisa
 // en la interfaz y se aplica cuando ella cierra la aplicación.
+// Si hay una versión descargada esperando. Solo entonces tiene sentido el
+// botón de «instalar y reabrir».
+let hayActualizacionLista = false
+let instalarActualizacion = null
+
 function vigilarActualizaciones(ventana) {
   if (!app.isPackaged) {
     apuntar('actualizaciones: en desarrollo no se comprueban')
@@ -305,9 +310,12 @@ function vigilarActualizaciones(ventana) {
     return
   }
 
+  // Se descarga en segundo plano, que eso no molesta a nadie, pero NO se
+  // instala por su cuenta: instalar significa cerrar la aplicación, y cerrarle
+  // la aplicación a alguien sin preguntar es de mala educación. Se avisa, y se
+  // instala cuando ella diga.
   updater.autoDownload = true
-  // Que la instale al salir, no a media faena.
-  updater.autoInstallOnAppQuit = true
+  updater.autoInstallOnAppQuit = false
   updater.logger = { info: apuntar, warn: apuntar, error: apuntar, debug: () => {} }
 
   const avisar = (estado, datos = {}) => {
@@ -326,7 +334,9 @@ function vigilarActualizaciones(ventana) {
   })
 
   updater.on('update-downloaded', (info) => {
-    apuntar(`actualizaciones: ${info?.version} lista, se instalará al cerrar`)
+    apuntar(`actualizaciones: ${info?.version} descargada, esperando que la instale`)
+    // Guardada para el botón: si no hay nada descargado, no hay nada que instalar.
+    hayActualizacionLista = true
     avisar('lista', { version: info?.version })
   })
 
@@ -334,6 +344,16 @@ function vigilarActualizaciones(ventana) {
     // Sin conexión es lo normal en esta app: no es un error que contar a nadie.
     apuntar(`actualizaciones: ${fallo?.message || fallo}`)
   })
+
+  // Lo que hace el botón: cerrar la aplicación, instalar y volver a abrirla.
+  // El primer argumento pide instalación silenciosa (sin el asistente del
+  // instalador) y el segundo, que la app vuelva a arrancar sola al terminar.
+  instalarActualizacion = () => {
+    apuntar('actualizaciones: instalando por petición de la usuaria')
+    // Fuera del hilo del IPC: quitAndInstall cierra ventanas, y hacerlo dentro
+    // del propio manejador deja la llamada colgada sin responder nunca.
+    setImmediate(() => updater.quitAndInstall(true, true))
+  }
 
   // Un poco después de arrancar, para no competir con la carga del taller.
   setTimeout(() => {
@@ -528,6 +548,15 @@ app.whenReady().then(async () => {
 
   // Para el aviso de novedades: la interfaz compara esta con la última que vio.
   ipcMain.handle('taller:version', () => app.getVersion())
+
+  // Instalar la actualización descargada: cierra, instala y vuelve a abrir.
+  // Devuelve si de verdad había algo que instalar, para que la interfaz no se
+  // quede esperando un reinicio que no va a llegar.
+  ipcMain.handle('taller:instalar-actualizacion', () => {
+    if (!hayActualizacionLista || !instalarActualizacion) return { ok: false }
+    instalarActualizacion()
+    return { ok: true }
+  })
 
   // ---- Terminal ----
   ipcMain.handle('terminal:ejecutar', (evento, comando) => {

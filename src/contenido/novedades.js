@@ -9,6 +9,18 @@
 
 const novedades = [
   {
+    version: '0.1.5',
+    titulo: 'Las actualizaciones ahora preguntan',
+    puntos: [
+      'Antes el taller se actualizaba solo al cerrarlo, sin decir nada. Ahora, cuando haya una versión nueva, te sale un aviso con un botón: la pone cuando tú lo pulses, no antes.',
+      'Al pulsarlo el taller se cierra y vuelve a abrirse él solo, ya con la versión nueva. Tu proyecto y tu progreso se quedan donde están.',
+      'Si estás a mitad de algo, «Luego» quita el aviso y te lo vuelve a ofrecer la próxima vez que abras.',
+      'Y este cartel es la otra novedad: de aquí en adelante, cada versión te cuenta qué ha cambiado. Se cierra con la ×, con el botón o con la tecla Esc.',
+    ],
+    wayne:
+      'Antes cerraba la puerta y me colaba a cambiar los muebles mientras no mirabas. Me han dicho que eso no se hace, así que ahora llamo primero. Aprendo despacio, pero aprendo.',
+  },
+  {
     version: '0.1.4',
     titulo: 'El aviso, ahora sí, para quien venía de antes',
     puntos: [

@@ -133,7 +133,30 @@ try {
     existsSync(npmCmd) ? 'ya están' : 'se crearán al primer comando',
   )
 
-  // 7. Y no se ha muerto por el camino.
+  // 7. Lo que se ha EMPAQUETADO de verdad no instala nada a la espalda de
+  // nadie. Las pruebas comprueban el código del repo; esto, el del .exe.
+  const mainEmpaquetado = path.join(
+    path.dirname(path.resolve(APP)),
+    'resources',
+    'app',
+    'taller-escritorio',
+    'main.cjs',
+  )
+  if (existsSync(mainEmpaquetado)) {
+    const codigo = readFileSync(mainEmpaquetado, 'utf8')
+    comprobar(
+      'lo empaquetado no se autoinstala al cerrar',
+      codigo.includes('autoInstallOnAppQuit = false'),
+    )
+    comprobar(
+      'lo empaquetado sabe reabrirse tras instalar',
+      codigo.includes('quitAndInstall(true, true)'),
+    )
+  } else {
+    comprobar('encuentro el main empaquetado', false, mainEmpaquetado)
+  }
+
+  // 8. Y no se ha muerto por el camino.
   comprobar('la app sigue viva', salida === null, salida === null ? '' : `salió con ${salida}`)
 } finally {
   try {

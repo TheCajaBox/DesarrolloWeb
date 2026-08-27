@@ -24,6 +24,7 @@ import {
 } from './contenido/novedades.js'
 import ArbolFicheros from './componentes/ArbolFicheros.vue'
 import Armonia from './componentes/Armonia.vue'
+import AvisoActualizacion from './componentes/AvisoActualizacion.vue'
 import ConsolaSql from './componentes/ConsolaSql.vue'
 import VisorEsquema from './componentes/VisorEsquema.vue'
 import Dialogo from './componentes/Dialogo.vue'
@@ -291,20 +292,31 @@ async function mirarNovedades() {
   else apuntarVersionVista(version)
 }
 
-// Las actualizaciones se avisan por boca de Wayne y no con una ventana a mitad
-// de una lección. La versión nueva se instala al cerrar la aplicación.
+// ---- La actualización, cuando ella diga ----
+//
+// La app no se cierra sola: eso es de mala educación. Se descarga en segundo
+// plano y aquí sale una tarjeta con el botón. Aparcarla («luego») solo la
+// esconde; se volverá a ofrecer al abrir el taller la próxima vez.
+const actualizacion = ref(null)
 let dejarDeEscucharActualizaciones = null
+
+function aparcarActualizacion() {
+  actualizacion.value = null
+  wayne.decirTexto('Vale, la dejamos para luego. Te la vuelvo a ofrecer la próxima vez que abras.')
+}
 
 onMounted(() => {
   if (!window.taller?.alActualizar) return
 
   dejarDeEscucharActualizaciones = window.taller.alActualizar(({ estado, version }) => {
-    if (estado === 'lista') {
-      wayne.decirTexto(
-        `Han traído una versión nueva del taller${version ? ` (la ${version})` : ''}. ` +
-          'Se pone sola la próxima vez que abras esto; tú sigue a lo tuyo.',
-      )
-    }
+    // Mientras baja no se dice nada: la tarjeta sale cuando ya está lista y
+    // hay algo que decidir.
+    if (estado !== 'lista') return
+
+    actualizacion.value = { version: version || '' }
+    wayne.decirTexto(
+      'Ha llegado una versión nueva del taller. Ahí abajo tienes el botón; yo no toco nada sin que me lo digas.',
+    )
   })
 })
 
@@ -652,12 +664,19 @@ async function borrar(ruta) {
       </section>
     </main>
 
-    <Novedades
-      v-if="novedades.length"
-      :entradas="novedades"
-      :version="versionActual"
-      @cerrar="cerrarNovedades"
-    />
+    <div v-if="actualizacion || novedades.length" class="avisos">
+      <AvisoActualizacion
+        v-if="actualizacion"
+        :version="actualizacion.version"
+        @luego="aparcarActualizacion"
+      />
+      <Novedades
+        v-if="novedades.length"
+        :entradas="novedades"
+        :version="versionActual"
+        @cerrar="cerrarNovedades"
+      />
+    </div>
     <WayneCompanero :texto="wayne.linea" />
     <Steris :termino="steris.termino" :error="steris.error" @cerrar="callarASteris" />
     <Dialogo />
@@ -962,6 +981,25 @@ async function borrar(ruta) {
   position: absolute;
   inset: 0;
   min-height: 0;
+}
+
+/* Los avisos que se apilan abajo a la izquierda: novedades, actualización.
+   Van en columna para que dos a la vez no se pisen, y no capturan el ratón
+   fuera de sus tarjetas. */
+.avisos {
+  position: fixed;
+  left: 1.2rem;
+  bottom: 1.2rem;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  align-items: flex-start;
+  pointer-events: none;
+}
+
+.avisos > * {
+  pointer-events: auto;
 }
 
 /* El número de avisos graves del esquema, sobre la pestaña. */

@@ -24,8 +24,13 @@ contextBridge.exposeInMainWorld('taller', {
   // La versión que corre ahora mismo (para el aviso de novedades).
   version: () => ipcRenderer.invoke('taller:version'),
 
+  // Cerrar, instalar la versión descargada y volver a abrir. Lo pide ella con
+  // un botón: la app no se cierra sola. Devuelve { ok } según si había algo.
+  instalarActualizacion: () => ipcRenderer.invoke('taller:instalar-actualizacion'),
+
   // Avisos de actualización: 'bajando' mientras se descarga, 'lista' cuando
-  // se aplicará al cerrar. Devuelve la función para darse de baja.
+  // está descargada y esperando que ella diga. Devuelve la función para
+  // darse de baja.
   alActualizar: (escuchar) => {
     const oyente = (_evento, dato) => escuchar(dato)
     ipcRenderer.on('taller:actualizacion', oyente)

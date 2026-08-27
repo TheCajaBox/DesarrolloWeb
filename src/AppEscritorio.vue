@@ -19,6 +19,7 @@ import Glosario from './componentes/Glosario.vue'
 import Mapa from './componentes/Mapa.vue'
 import PanelMundo from './componentes/PanelMundo.vue'
 import Steris from './componentes/Steris.vue'
+import TerminalIntegrada from './componentes/Terminal.vue'
 import VistaPreviaEscritorio from './componentes/VistaPreviaEscritorio.vue'
 import WayneCompanero from './componentes/WayneCompanero.vue'
 import { avisar, pedirTexto, preguntar } from './motor/dialogos.js'
@@ -141,6 +142,52 @@ const steris = ref({ termino: null, error: null })
 const explicarTermino = (t) => (steris.value = { termino: t, error: null })
 const explicarError = (e) => (steris.value = { termino: null, error: e })
 const callarASteris = () => (steris.value = { termino: null, error: null })
+
+// ---- La terminal ----
+//
+// Vive debajo del editor, como en cualquier editor de código. El alto se
+// arrastra y se recuerda; cerrarla no mata lo que esté corriendo.
+const CLAVE_TERMINAL = 'sombrero-terminal'
+const terminalAbierta = ref(false)
+const terminalOcupada = ref(false)
+const altoTerminal = ref(260)
+
+try {
+  const guardado = JSON.parse(localStorage.getItem(CLAVE_TERMINAL) || '{}')
+  terminalAbierta.value = Boolean(guardado.abierta)
+  altoTerminal.value = Number(guardado.alto) || 260
+} catch {
+  /* valores por defecto */
+}
+
+watch([terminalAbierta, altoTerminal], () => {
+  try {
+    localStorage.setItem(
+      CLAVE_TERMINAL,
+      JSON.stringify({ abierta: terminalAbierta.value, alto: altoTerminal.value }),
+    )
+  } catch {
+    /* sin persistencia; vale para esta sesión */
+  }
+})
+
+function arrastrarAlto(evento) {
+  evento.preventDefault()
+  const desdeY = evento.clientY
+  const inicial = altoTerminal.value
+
+  const mover = (e) => {
+    // Crece hacia arriba: el ratón sube, la terminal se hace más alta.
+    altoTerminal.value = Math.min(700, Math.max(120, inicial + (desdeY - e.clientY)))
+  }
+  const soltar = () => {
+    window.removeEventListener('pointermove', mover)
+    window.removeEventListener('pointerup', soltar)
+  }
+
+  window.addEventListener('pointermove', mover)
+  window.addEventListener('pointerup', soltar)
+}
 
 // ---- La columna de la derecha: resultado, base de datos o esquema ----
 const salida = ref('vista')
@@ -448,13 +495,36 @@ async function borrar(ruta) {
       ></div>
 
       <section class="centro">
-        <div class="tira">{{ taller.rutaActiva || 'sin fichero' }}</div>
+        <div class="tira">
+          <span>{{ taller.rutaActiva || 'sin fichero' }}</span>
+          <button
+            class="mini"
+            :class="{ activa: terminalAbierta }"
+            :title="terminalAbierta ? 'Cerrar la terminal' : 'Abrir la terminal (npm, node, git)'"
+            @click="terminalAbierta = !terminalAbierta"
+          >
+            Terminal{{ terminalOcupada ? ' ·' : '' }}
+          </button>
+        </div>
         <Editor
           :contenido="taller.borrador"
           :extension="taller.extensionActiva"
           :ruta="taller.rutaActiva"
           @escribir="(contenido, ruta) => taller.escribir(contenido, ruta)"
         />
+
+        <!-- La terminal, debajo del editor y con su manilla, como en VS Code.
+             Se esconde con v-show y no con v-if: cerrarla no debe matar el
+             comando que esté corriendo ni perder lo que ya salió. -->
+        <div
+          v-show="terminalAbierta"
+          class="manilla horizontal"
+          title="Arrastra para cambiar el alto de la terminal"
+          @pointerdown="arrastrarAlto($event)"
+        ></div>
+        <div v-show="terminalAbierta" class="hueco-terminal" :style="{ height: `${altoTerminal}px` }">
+          <TerminalIntegrada @ejecutando="terminalOcupada = $event" />
+        </div>
       </section>
 
       <div
@@ -669,6 +739,36 @@ async function borrar(ruta) {
 .manilla:hover,
 .paneles.arrastrando .manilla {
   background: var(--laton);
+}
+
+/* La de la terminal separa arriba y abajo, no izquierda y derecha. */
+.manilla.horizontal {
+  cursor: row-resize;
+  height: 5px;
+  flex: none;
+}
+
+.manilla.horizontal::after {
+  inset: -4px 0;
+}
+
+.hueco-terminal {
+  flex: none;
+  min-height: 0;
+  border-top: 1px solid var(--borde);
+  overflow: hidden;
+}
+
+/* La tira del nombre de fichero ahora lleva el botón de la terminal. */
+.tira {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.mini.activa {
+  color: var(--laton);
 }
 
 /* Sin border-right: ahora el separador es la manilla arrastrable. */

@@ -20,4 +20,21 @@ contextBridge.exposeInMainWorld('taller', {
   // El build real de Vite sobre el proyecto: deja la web lista en dist/ y
   // abre la carpeta. Devuelve { ok, ruta } o { ok: false, error }.
   exportar: () => ipcRenderer.invoke('taller:exportar'),
+
+  // La terminal. Ejecuta comandos de verdad sobre el proyecto (npm, node,
+  // git) y devuelve su salida a trozos, como cualquier terminal.
+  terminal: {
+    ejecutar: (comando) => ipcRenderer.invoke('terminal:ejecutar', comando),
+    escribir: (texto) => ipcRenderer.invoke('terminal:escribir', texto),
+    parar: () => ipcRenderer.invoke('terminal:parar'),
+    donde: () => ipcRenderer.invoke('terminal:donde'),
+
+    // Se suscribe a la salida. Devuelve la función para darse de baja: sin
+    // eso, cada vez que se remonta el panel se acumularía otro oyente.
+    alSalir: (escuchar) => {
+      const oyente = (_evento, dato) => escuchar(dato)
+      ipcRenderer.on('terminal:salida', oyente)
+      return () => ipcRenderer.removeListener('terminal:salida', oyente)
+    },
+  },
 })

@@ -13,6 +13,7 @@ const { app, BrowserWindow, ipcMain, shell } = require('electron')
 const path = require('node:path')
 const fs = require('node:fs/promises')
 const fsSinc = require('node:fs')
+const { pideInternet, avisoDeInternet } = require('./politica-terminal.cjs')
 
 const RAIZ = path.join(__dirname, '..')
 const PLANTILLA = path.join(__dirname, 'proyecto-alumna')
@@ -48,6 +49,16 @@ let urlVistaAlumna = ''
 let urlInterfaz = ''
 
 async function arrancarVites() {
+  // El directorio de trabajo de una app instalada lo pone Windows, y puede ser
+  // cualquiera. Cualquier ruta relativa (de aquí o de una configuración de
+  // Vite) se resolvería contra él. Se fija a la raíz de la app y así deja de
+  // ser una variable.
+  try {
+    process.chdir(RAIZ)
+  } catch {
+    /* si no se puede, las rutas de abajo ya son absolutas */
+  }
+
   const { createServer } = await import('vite')
   const vue = (await import('@vitejs/plugin-vue')).default
 
@@ -62,20 +73,70 @@ async function arrancarVites() {
   await viteAlumna.listen()
   urlVistaAlumna = `http://127.0.0.1:${viteAlumna.config.server.port}/`
 
-  // 2. La interfaz del taller (usa su propia configuración del repo).
+  // 2. La interfaz del taller (usa su propia configuración del repo). El `root`
+  // se pasa además aquí, absoluto: es la carpeta que se sirve, y no puede
+  // depender de dónde se haya arrancado el proceso.
   viteInterfaz = await createServer({
     configFile: path.join(RAIZ, 'vite.escritorio.js'),
+    root: path.join(RAIZ, 'paginas', 'escritorio'),
     logLevel: 'warn',
     server: { host: '127.0.0.1', port: 5280, strictPort: true },
   })
   await viteInterfaz.listen()
   urlInterfaz = `http://127.0.0.1:${viteInterfaz.config.server.port}/`
 
+  // Comprobación de arranque: si la página que va a cargar la ventana no
+  // existe, se dice AQUÍ. Antes esto se manifestaba como una ventana negra sin
+  // ninguna explicación, que es la peor forma de fallar.
+  const indice = path.join(RAIZ, 'paginas', 'escritorio', 'index.html')
+  if (!fsSinc.existsSync(indice)) {
+    throw new Error(`No encuentro la página de la interfaz en ${indice}`)
+  }
+
   console.log('[taller] proyecto en', urlVistaAlumna)
   console.log('[taller] interfaz en', urlInterfaz)
 }
 
-function crearVentana() {
+// Un registro de arranque en fichero. Una app instalada no tiene consola: sin
+// esto, cuando algo falla lo único que se ve es una ventana negra y hay que
+// adivinar. Vive en la carpeta de datos, junto al proyecto.
+function apuntar(mensaje) {
+  const linea = `[${new Date().toISOString()}] ${mensaje}\n`
+  try {
+    fsSinc.appendFileSync(path.join(app.getPath('userData'), 'arranque.log'), linea)
+  } catch {
+    /* si no se puede escribir, al menos queda en la consola */
+  }
+  console.log(mensaje)
+}
+
+// Si el arranque se rompe, la ventana lo DICE. Con el error, dónde está el
+// registro y qué hacer. Nunca en negro.
+function mostrarFallo(ventana, error) {
+  const registro = path.join(app.getPath('userData'), 'arranque.log')
+  const pagina = `<!doctype html>
+<html lang="es"><head><meta charset="utf-8" />
+<style>
+  body { margin: 0; padding: 3rem 2.5rem; background: #161512; color: #e8e2d4;
+         font: 15px/1.6 system-ui, sans-serif; }
+  h1 { font-size: 1.35rem; margin: 0 0 0.4rem; color: #dfb96f; }
+  p { max-width: 44rem; color: #b8b0a0; }
+  pre { background: #211e1a; border: 1px solid #3a352c; border-radius: 8px;
+        padding: 1rem; white-space: pre-wrap; color: #e0a98f; max-width: 44rem; }
+  code { color: #dfb96f; }
+</style></head>
+<body>
+  <h1>El taller no ha podido arrancar</h1>
+  <p>No es culpa tuya y no se ha perdido nada de tu trabajo. Esto es lo que ha pasado:</p>
+  <pre>${String(error && error.stack ? error.stack : error).replace(/[<>&]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' })[c])}</pre>
+  <p>Cierra la ventana y vuelve a abrir la aplicación. Si sigue igual, manda el
+     fichero <code>${registro}</code>, que ahí está apuntado todo.</p>
+</body></html>`
+
+  ventana.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(pagina)}`)
+}
+
+function crearVentana({ enBlanco = false } = {}) {
   const ventana = new BrowserWindow({
     width: 1440,
     height: 920,
@@ -89,8 +150,105 @@ function crearVentana() {
     },
   })
 
-  ventana.loadURL(urlInterfaz)
+  if (!enBlanco) ventana.loadURL(urlInterfaz)
   return ventana
+}
+
+// ---------------------------------------------------------------------------
+// La terminal
+// ---------------------------------------------------------------------------
+//
+// Ejecuta comandos DE VERDAD sobre el proyecto de la alumna: npm run build,
+// npm test, git status. No es una imitación con respuestas preparadas.
+//
+// El problema a resolver: en su máquina no hay Node ni npm instalados. Pero
+// Electron ES Node por dentro, así que con ELECTRON_RUN_AS_NODE=1 su propio
+// ejecutable hace de intérprete. Se escriben dos lanzadores (`node` y `npm`)
+// en una carpeta que se añade al PATH del proceso hijo, y a partir de ahí
+// `npm run build` en la terminal es el npm de verdad, con el package.json de
+// verdad.
+
+function prepararLanzadores() {
+  const bin = path.join(app.getPath('userData'), 'bin')
+  fsSinc.mkdirSync(bin, { recursive: true })
+
+  const npmCli = path.join(RAIZ, 'node_modules', 'npm', 'bin', 'npm-cli.js')
+
+  // %~dp0 es la carpeta del propio .cmd; %* son los argumentos tal cual.
+  fsSinc.writeFileSync(
+    path.join(bin, 'node.cmd'),
+    ['@echo off', 'set ELECTRON_RUN_AS_NODE=1', `"${process.execPath}" %*`].join('\r\n'),
+  )
+
+  fsSinc.writeFileSync(
+    path.join(bin, 'npm.cmd'),
+    [
+      '@echo off',
+      'set ELECTRON_RUN_AS_NODE=1',
+      `"${process.execPath}" "${npmCli}" %*`,
+    ].join('\r\n'),
+  )
+
+  return { bin, hayNpm: fsSinc.existsSync(npmCli) }
+}
+
+let enMarcha = null
+
+function ejecutarEnTerminal(ventana, comando) {
+  if (enMarcha) return { ok: false, error: 'Ya hay un comando en marcha. Párralo con Ctrl+C.' }
+
+  const deRed = pideInternet(comando)
+  if (deRed) {
+    apuntar(`terminal: bloqueado por red · ${comando}`)
+    if (!ventana.isDestroyed()) {
+      ventana.webContents.send('terminal:salida', {
+        tipo: 'aviso',
+        texto: avisoDeInternet(comando, deRed.que, PROYECTO),
+      })
+      ventana.webContents.send('terminal:salida', { tipo: 'fin', texto: '1' })
+    }
+    return { ok: true, bloqueado: true }
+  }
+
+  const { spawn } = require('node:child_process')
+  const { bin } = prepararLanzadores()
+
+  const entorno = {
+    ...process.env,
+    // Los lanzadores primero: así `npm` y `node` son los de la app aunque no
+    // haya nada instalado en el sistema.
+    PATH: `${bin}${path.delimiter}${process.env.PATH || ''}`,
+    // npm en color no se lee bien en xterm sin pty; se le pide texto plano.
+    FORCE_COLOR: '0',
+    NO_UPDATE_NOTIFIER: '1',
+  }
+
+  const hijo = spawn(comando, {
+    cwd: PROYECTO,
+    env: entorno,
+    shell: true,
+    windowsHide: true,
+  })
+
+  enMarcha = hijo
+
+  const mandar = (tipo, texto) => {
+    if (!ventana.isDestroyed()) ventana.webContents.send('terminal:salida', { tipo, texto })
+  }
+
+  hijo.stdout.on('data', (trozo) => mandar('salida', trozo.toString()))
+  hijo.stderr.on('data', (trozo) => mandar('error', trozo.toString()))
+
+  hijo.on('error', (fallo) => {
+    mandar('error', `No se ha podido ejecutar: ${fallo.message}\r\n`)
+  })
+
+  hijo.on('close', (codigo) => {
+    enMarcha = null
+    mandar('fin', String(codigo ?? 0))
+  })
+
+  return { ok: true }
 }
 
 // El renderer solo puede tocar ficheros DENTRO del proyecto de la alumna.
@@ -103,8 +261,35 @@ function rutaSegura(ruta) {
 }
 
 app.whenReady().then(async () => {
-  prepararProyecto()
-  await arrancarVites()
+  // La ventana se abre PRIMERO, con un aviso de que está arrancando. Así, si
+  // algo falla, hay dónde contarlo (y si tarda, se ve que está trabajando).
+  const ventana = crearVentana({ enBlanco: true })
+  ventana.loadURL(
+    'data:text/html;charset=utf-8,' +
+      encodeURIComponent(
+        '<!doctype html><html lang="es"><head><meta charset="utf-8"><style>' +
+          'body{margin:0;height:100vh;display:grid;place-content:center;background:#161512;' +
+          'color:#b8b0a0;font:15px system-ui,sans-serif;text-align:center}' +
+          'b{color:#dfb96f;font-weight:600}</style></head><body><div>' +
+          '<p><b>El Sombrero de Wayne</b></p><p>Preparando el taller…</p>' +
+          '</div></body></html>',
+      ),
+  )
+
+  try {
+    apuntar(`arrancando · versión ${app.getVersion()} · empaquetada: ${app.isPackaged}`)
+    apuntar(`raíz: ${RAIZ}`)
+    apuntar(`proyecto: ${PROYECTO}`)
+
+    prepararProyecto()
+    await arrancarVites()
+    apuntar(`interfaz lista en ${urlInterfaz}`)
+    ventana.loadURL(urlInterfaz)
+  } catch (error) {
+    apuntar(`FALLO AL ARRANCAR: ${error && error.stack ? error.stack : error}`)
+    mostrarFallo(ventana, error)
+    return
+  }
 
   ipcMain.handle('taller:leer', async (_e, ruta) => {
     try {
@@ -152,6 +337,36 @@ app.whenReady().then(async () => {
 
   ipcMain.handle('taller:url-vista', () => urlVistaAlumna)
 
+  // ---- Terminal ----
+  ipcMain.handle('terminal:ejecutar', (evento, comando) => {
+    const suya = BrowserWindow.fromWebContents(evento.sender)
+    apuntar(`terminal: ${comando}`)
+    return ejecutarEnTerminal(suya, String(comando || ''))
+  })
+
+  // Lo que se teclea mientras un comando está corriendo (una respuesta a una
+  // pregunta, por ejemplo).
+  ipcMain.handle('terminal:escribir', (_e, texto) => {
+    if (!enMarcha) return false
+    enMarcha.stdin.write(String(texto))
+    return true
+  })
+
+  // Ctrl+C.
+  ipcMain.handle('terminal:parar', () => {
+    if (!enMarcha) return false
+    enMarcha.kill()
+    return true
+  })
+
+  // Para la primera línea de la terminal: dónde está el proyecto y con qué
+  // versiones trabaja.
+  ipcMain.handle('terminal:donde', () => ({
+    proyecto: PROYECTO,
+    node: process.versions.node,
+    electron: process.versions.electron,
+  }))
+
   // Exportar: el build real de Vite sobre el proyecto de la alumna. Deja la
   // web empaquetada en dist/ y abre la carpeta para que la vea.
   let exportando = false
@@ -180,8 +395,8 @@ app.whenReady().then(async () => {
     }
   })
 
-  crearVentana()
-
+  // La ventana ya está abierta desde el principio de este bloque, con la
+  // interfaz cargada: aquí no se crea otra.
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) crearVentana()
   })

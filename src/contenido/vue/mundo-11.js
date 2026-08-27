@@ -6,12 +6,16 @@
 //
 // Dialogos originales, en el registro de los personajes. Nada de los libros.
 
-import { comprobarVue, scriptContiene } from '../mundos/comprobaciones.js'
+import {
+  comprobarVue,
+  plantillaContiene,
+  scriptContiene,
+  scriptDeclara,
+  scriptDefine,
+  scriptImporta,
+  scriptLlama,
+} from '../mundos/comprobaciones.js'
 import { completar, eleccion, emparejar, ordenar, verdaderoFalso } from '../mundos/tipos-de-paso.js'
-
-function plantillaContiene(patron, mensaje) {
-  return (_doc, _ficheros, partido) => (patron.test(partido?.template || '') ? null : mensaje)
-}
 
 const APP_SEMBRADA = `<script setup>
 import { ref } from 'vue'
@@ -181,8 +185,11 @@ Se lee: "por cada \`sombrero\` dentro de \`sombreros\`, pinta un \`<article>\` c
       pista: 'Cada sombrero es un objeto entre llaves: <code>{ id: 1, nombre: \'Bombín\', precio: 42 }</code>, separados por comas, dentro de los corchetes del array.',
       comprobar: comprobarVue({
         script: [
-          scriptContiene(/const\s+sombreros\s*=\s*ref\s*\(\s*\[/, {
+          scriptDeclara('sombreros', {
+            llamando: 'ref',
+            con: 'array',
             falta: 'Falta const sombreros = ref([ … ]) con el array dentro.',
+            malo: 'A ref() hay que pasarle un array: la lista de sombreros.',
           }),
           scriptContiene(/id\s*:\s*\d+[\s\S]*?nombre\s*:\s*['"`][\s\S]*?precio\s*:\s*\d+/, {
             falta: 'Cada sombrero necesita sus tres campos: id, nombre y precio.',
@@ -258,7 +265,10 @@ Se lee: "por cada \`sombrero\` dentro de \`sombreros\`, pinta un \`<article>\` c
       comprobar: comprobarVue({
         script: [
           scriptContiene(/function\s+estrenar\s*\(|const\s+estrenar\s*=/, { falta: 'Falta la función estrenar.' }),
-          scriptContiene(/sombreros\.value\.push\s*\(/, { falta: 'estrenar tiene que hacer sombreros.value.push({ … }).' }),
+          scriptLlama('sombreros.value.push', {
+            dentroDe: 'estrenar',
+            falta: 'estrenar tiene que hacer sombreros.value.push({ … }).',
+          }),
         ],
         template: [
           plantillaContiene(/@click\s*=\s*["']estrenar/, 'Falta el botón con @click="estrenar".'),
@@ -332,12 +342,12 @@ Se lee: "por cada \`sombrero\` dentro de \`sombreros\`, pinta un \`<article>\` c
         'Sin pistas. El catálogo final: array <code>sombreros</code> con al menos <strong>cuatro</strong> objetos completos (id, nombre, precio), UNA ficha con <code>v-for</code> y <code>:key="sombrero.id"</code> enseñando nombre y precio, la cuenta con <code>{{ sombreros.length }}</code>, y el botón «Estrenar» haciendo <code>push</code>.',
       comprobar: comprobarVue({
         script: [
-          scriptContiene(/const\s+sombreros\s*=\s*ref\s*\(\s*\[/, { falta: 'Falta el array sombreros en un ref.' }),
+          scriptDeclara('sombreros', { llamando: 'ref', con: 'array', falta: 'Falta el array sombreros en un ref.' }),
           (script) => {
             const cuantos = (String(script).match(/nombre\s*:/g) || []).length
             return cuantos < 4 ? `El array lleva ${cuantos} sombreros y hacen falta 4.` : null
           },
-          scriptContiene(/sombreros\.value\.push\s*\(/, { falta: 'Falta el push de estrenar.' }),
+          scriptLlama('sombreros.value.push', { falta: 'Falta el push de estrenar.' }),
         ],
         template: [
           plantillaContiene(/v-for\s*=\s*["']\s*\w+\s+in\s+sombreros\s*["']/, 'Falta el v-for="sombrero in sombreros" en la ficha.'),

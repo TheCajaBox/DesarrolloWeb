@@ -7,12 +7,11 @@
 //
 // Dialogos originales, en el registro de los personajes. Nada de los libros.
 
-import { comprobarVue } from '../mundos/comprobaciones.js'
+import {
+  comprobarVue,
+  plantillaContiene,
+} from '../mundos/comprobaciones.js'
 import { completar, eleccion, emparejar, ordenar, verdaderoFalso } from '../mundos/tipos-de-paso.js'
-
-function plantillaContiene(patron, mensaje) {
-  return (_doc, _ficheros, partido) => (patron.test(partido?.template || '') ? null : mensaje)
-}
 
 const APP_SEMBRADA = `<script setup>
 import { onMounted, ref } from 'vue'

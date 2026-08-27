@@ -12,6 +12,16 @@
 import { buscarTodos, leerHtml, textoDe } from '../../motor/leer-html.js'
 import { leerCss, reglasPara, tieneAlguna, valorDe } from '../../motor/leer-css.js'
 import { estiloDe, partirVue } from '../../motor/leer-vue.js'
+// El <script> se lee parseándolo, no buscando palabras: ver motor/leer-script.js.
+import {
+  analizar,
+  cuerpoDe,
+  funciones,
+  importa,
+  llamadas,
+  sinComentarios,
+  variables,
+} from '../../motor/leer-script.js'
 
 // ---------------------------------------------------------------------------
 // Armadores
@@ -76,7 +86,7 @@ export function comprobarVue({
 }) {
   if (!exito) throw new Error('comprobarVue necesita un mensaje de éxito')
 
-  return (ficheros) => {
+  const comprobador = (ficheros) => {
     const partido = partirVue(ficheros?.[fichero] || '')
 
     if (partido.errores.length) {
@@ -101,13 +111,27 @@ export function comprobarVue({
       if (problema) return { superado: false, mensaje: problema }
     }
 
+    // A los requisitos de script se les da el código SIN COMENTARIOS. Así
+    // ninguna comprobación —ni las de aquí ni las escritas a mano en un
+    // mundo— puede aprobarse con la respuesta comentada. El original sigue
+    // disponible en `partido` para quien lo necesite.
+    const codigo = sinComentarios(partido.script || '')
     for (const requisito of script) {
-      const problema = requisito(partido.script || '', ficheros, partido)
+      const problema = requisito(codigo, ficheros, partido)
       if (problema) return { superado: false, mensaje: problema }
     }
 
     return { superado: true, mensaje: typeof exito === 'function' ? exito(partido) : exito }
   }
+
+  // Qué bloques mira este paso. Lo usan las pruebas antitrampas para saber
+  // cuáles deben dejar de aprobarse si la respuesta se comenta.
+  comprobador.fichero = fichero
+  comprobador.usaTemplate = template.length > 0
+  comprobador.usaEstilo = estilo.length > 0
+  comprobador.usaScript = script.length > 0
+
+  return comprobador
 }
 
 /**
@@ -117,10 +141,206 @@ export function comprobarVue({
  */
 export function scriptContiene(patron, { falta } = {}) {
   return (script) => {
-    if (!patron.test(String(script || ''))) {
+    // Se busca en el código SIN comentarios ni contenido de cadenas. Antes no
+    // era así, y por eso estas dos líneas aprobaban un paso:
+    //
+    //   // const sombreros = ref([])
+    //   const nota = 'aquí va un ref([])'
+    //
+    // Un comentario no declara nada. Las cadenas SÍ se conservan: hay pasos
+    // que buscan legítimamente dentro de ellas (`from 'vue'`). Para lo que de
+    // verdad importa —declaraciones, llamadas, imports— están los requisitos
+    // de AST de más abajo, que no se dejan engañar por nada.
+    const limpio = sinComentarios(String(script || ''))
+
+    if (!patron.test(limpio)) {
       return falta || 'Al <script> le falta algo que este paso pide.'
     }
     return null
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Requisitos de <script> que preguntan al ÁRBOL, no al texto
+// ---------------------------------------------------------------------------
+//
+// Estos no se dejan engañar ni por comentarios, ni por cadenas, ni por un
+// nombre parecido metido en medio de otra palabra. Cuando un paso pide "declara
+// un ref llamado sombreros", esto comprueba exactamente eso.
+
+/**
+ * Que exista una variable con ese nombre y, si se pide, inicializada llamando a
+ * algo concreto (ref, computed, defineStore…).
+ *   scriptDeclara('sombreros', { llamando: 'ref', con: 'array' })
+ */
+export function scriptDeclara(nombre, { llamando, con, falta, malo } = {}) {
+  return (script) => {
+    const encontradas = variables(script)
+    const suya = encontradas.find((v) => v.nombre === nombre)
+
+    if (!suya) {
+      const otras = encontradas.map((v) => v.nombre).filter(Boolean)
+      return (
+        falta ||
+        `No encuentro ninguna variable llamada «${nombre}» en el script.${
+          otras.length ? ` Tienes: ${otras.slice(0, 6).join(', ')}.` : ''
+        }`
+      )
+    }
+
+    if (llamando && suya.llamando !== llamando) {
+      return (
+        malo ||
+        `«${nombre}» existe, pero no se crea con ${llamando}(…)${
+          suya.llamando ? `, sino con ${suya.llamando}(…)` : ''
+        }.`
+      )
+    }
+
+    if (con) {
+      const primero = suya.argumentos[0]
+      const esperado = {
+        array: 'ArrayExpression',
+        objeto: 'ObjectExpression',
+        texto: 'Literal',
+        numero: 'Literal',
+        funcion: ['ArrowFunctionExpression', 'FunctionExpression'],
+      }[con]
+
+      const tipos = Array.isArray(esperado) ? esperado : [esperado]
+      const encaja =
+        primero &&
+        tipos.includes(primero.type) &&
+        (con !== 'array' || primero.type === 'ArrayExpression') &&
+        (con !== 'texto' || typeof primero.value === 'string') &&
+        (con !== 'numero' || typeof primero.value === 'number')
+
+      if (!encaja) {
+        return malo || `A «${nombre}» hay que pasarle ${con === 'array' ? 'un array' : `un ${con}`}.`
+      }
+    }
+
+    return null
+  }
+}
+
+/** Que exista una función con ese nombre (declarada, flecha o método). */
+export function scriptDefine(nombre, { falta } = {}) {
+  return (script) => {
+    const nombres = funciones(script)
+    if (nombres.includes(nombre)) return null
+    return (
+      falta ||
+      `Falta la función «${nombre}»${
+        nombres.length ? `. Tienes: ${nombres.slice(0, 6).join(', ')}.` : ' en el script.'
+      }`
+    )
+  }
+}
+
+/**
+ * Que se llame a algo. Acepta nombre simple ('ref') o con punto
+ * ('localStorage.setItem'). Con `dentroDe` se exige que la llamada esté dentro
+ * de una función concreta.
+ */
+export function scriptLlama(nombre, { dentroDe, veces, falta } = {}) {
+  return (script) => {
+    const texto = dentroDe ? cuerpoDe(script, dentroDe) : String(script || '')
+
+    if (dentroDe && texto === null) {
+      return `Falta la función «${dentroDe}».`
+    }
+
+    const encontradas = llamadas(texto).filter((l) => l.nombre === nombre)
+
+    if (!encontradas.length) {
+      return (
+        falta ||
+        `No veo ninguna llamada a ${nombre}(…)${dentroDe ? ` dentro de «${dentroDe}»` : ''}.`
+      )
+    }
+
+    if (veces && encontradas.length < veces) {
+      return `${nombre}(…) aparece ${encontradas.length} vez${
+        encontradas.length === 1 ? '' : 'es'
+      } y hacen falta ${veces}.`
+    }
+
+    return null
+  }
+}
+
+/** Que se importe ese nombre desde ese sitio. */
+export function scriptImporta(nombre, de, { falta } = {}) {
+  return (script) => {
+    if (importa(script, nombre, de)) return null
+    return falta || `Falta el import de ${nombre}${de ? ` desde '${de}'` : ''}.`
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Buscar en la plantilla y en otros ficheros
+// ---------------------------------------------------------------------------
+//
+// Estos dos estaban copiados a mano en diecinueve mundos, cada uno con su
+// versión. Ahora viven aquí y quitan los comentarios antes de buscar: comentar
+// la respuesta no puede aprobar un paso.
+
+/** Quita comentarios de JS, de HTML y de CSS, conservando las posiciones. */
+export function sinComentariosDeNada(texto) {
+  const fuente = String(texto || '')
+
+  // Los de HTML y CSS se pueden quitar con seguridad: en HTML y en CSS no hay
+  // cadenas donde `<!--` o `/*` signifiquen otra cosa que un comentario.
+  const aEspacios = (todo) => todo.replace(/[^\n]/g, ' ')
+  let limpio = fuente
+    .replace(/<!--[\s\S]*?-->/g, aEspacios)
+    .replace(/\/\*[\s\S]*?\*\//g, aEspacios)
+
+  // Y los de JavaScript, con el parser, solo dentro del bloque <script>.
+  const bloque = limpio.match(/<script[^>]*>([\s\S]*?)<\/script>/)
+  if (bloque) {
+    const dentro = bloque[1]
+    const desde = limpio.indexOf(dentro)
+    limpio = limpio.slice(0, desde) + sinComentarios(dentro) + limpio.slice(desde + dentro.length)
+  } else {
+    limpio = sinComentarios(limpio)
+  }
+
+  return limpio
+}
+
+/**
+ * Que la PLANTILLA del .vue contenga algo. Se busca sobre el texto de la
+ * plantilla (las llaves dobles y las directivas no sobreviven al DOMParser),
+ * sin sus comentarios.
+ */
+export function plantillaContiene(patron, mensaje) {
+  return (_doc, _ficheros, partido) =>
+    patron.test(sinComentariosDeNada(partido?.template || '')) ? null : mensaje
+}
+
+/**
+ * Que OTRO fichero del proyecto contenga algo. Para los mundos de varios
+ * ficheros: el hijo, el router, el store, main.js.
+ */
+export function ficheroContiene(ruta, patron, mensaje) {
+  return (_doc, ficheros) => {
+    const contenido = ficheros?.[ruta]
+    if (contenido === undefined) return `Falta el fichero ${ruta}.`
+    return patron.test(sinComentariosDeNada(contenido)) ? null : mensaje
+  }
+}
+
+/** Que el script compile. Da el error real y la línea. */
+export function scriptCompila({ falta } = {}) {
+  return (script) => {
+    const { ok, error, linea } = analizar(script)
+    if (ok) return null
+    return (
+      falta ||
+      `El script no compila: ${error}${linea ? ` (línea ${linea} del bloque script)` : ''}.`
+    )
   }
 }
 

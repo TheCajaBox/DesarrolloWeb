@@ -7,12 +7,16 @@
 //
 // Dialogos originales, en el registro de los personajes. Nada de los libros.
 
-import { comprobarVue, scriptContiene } from '../mundos/comprobaciones.js'
+import {
+  comprobarVue,
+  plantillaContiene,
+  scriptContiene,
+  scriptDeclara,
+  scriptDefine,
+  scriptImporta,
+  scriptLlama,
+} from '../mundos/comprobaciones.js'
 import { completar, eleccion, emparejar, ordenar, verdaderoFalso } from '../mundos/tipos-de-paso.js'
-
-function plantillaContiene(patron, mensaje) {
-  return (_doc, _ficheros, partido) => (patron.test(partido?.template || '') ? null : mensaje)
-}
 
 const APP_SEMBRADA = `<script setup>
 import { computed, ref } from 'vue'
@@ -209,7 +213,9 @@ function anadir() {
       pista: 'El ref empieza con texto vacío: ref(\'\'). El input se ata con v-model="busqueda".',
       comprobar: comprobarVue({
         script: [
-          scriptContiene(/const\s+busqueda\s*=\s*ref\s*\(\s*['"`]{2}\s*\)|const\s+busqueda\s*=\s*ref\s*\(\s*['"]['"]\s*\)/, {
+          scriptDeclara('busqueda', {
+            llamando: 'ref',
+            con: 'texto',
             falta: "Falta const busqueda = ref('') en el script.",
           }),
         ],
@@ -228,7 +234,7 @@ function anadir() {
       pista: 'La pregunta del filter: <code>s.nombre.toLowerCase().includes(busqueda.value.toLowerCase())</code>.',
       comprobar: comprobarVue({
         script: [
-          scriptContiene(/const\s+encontrados\s*=\s*computed\s*\(/, { falta: 'Falta const encontrados = computed(…).' }),
+          scriptDeclara('encontrados', { llamando: 'computed', falta: 'Falta const encontrados = computed(…).' }),
           scriptContiene(/\.filter\s*\(/, { falta: 'encontrados tiene que usar filter.' }),
           scriptContiene(/toLowerCase\s*\(\s*\)[\s\S]*?includes\s*\(|includes\s*\([\s\S]*?toLowerCase/, {
             falta: 'La comparación necesita toLowerCase() e includes para ignorar mayúsculas.',
@@ -319,8 +325,8 @@ function anadir() {
       pista: 'La función del apunte de Wax, tal cual: trim, if (!nombre) return, push, y nuevoNombre.value = \'\'.',
       comprobar: comprobarVue({
         script: [
-          scriptContiene(/const\s+nuevoNombre\s*=\s*ref\s*\(/, { falta: 'Falta el ref nuevoNombre.' }),
-          scriptContiene(/function\s+anadir\s*\(|const\s+anadir\s*=/, { falta: 'Falta la función anadir.' }),
+          scriptDeclara('nuevoNombre', { llamando: 'ref', falta: 'Falta el ref nuevoNombre.' }),
+          scriptDefine('anadir', { falta: 'Falta la función anadir.' }),
           scriptContiene(/\.trim\s*\(\s*\)/, { falta: 'anadir tiene que limpiar espacios con trim().' }),
           scriptContiene(/if\s*\(\s*!\s*\w+\s*\)\s*return/, { falta: 'Falta el corte si quedó vacío: if (!nombre) return.' }),
           scriptContiene(/sombreros\.value\.push\s*\(/, { falta: 'Falta el push al array.' }),
@@ -356,8 +362,8 @@ function anadir() {
         'Sin pistas. Todo junto y funcionando: el buscador (<code>busqueda</code> + <code>v-model</code> + computed <code>encontrados</code> con <code>toLowerCase</code>/<code>includes</code>), el <code>v-for</code> sobre <code>encontrados</code>, el aviso de «nada encontrado», y el alta completa (<code>form</code> con <code>@submit.prevent</code>, <code>trim</code>, corte por vacío, <code>push</code> y limpieza del campo).',
       comprobar: comprobarVue({
         script: [
-          scriptContiene(/const\s+busqueda\s*=\s*ref\s*\(/, { falta: 'Falta el ref busqueda.' }),
-          scriptContiene(/const\s+encontrados\s*=\s*computed\s*\(/, { falta: 'Falta el computed encontrados.' }),
+          scriptDeclara('busqueda', { llamando: 'ref', falta: 'Falta el ref busqueda.' }),
+          scriptDeclara('encontrados', { llamando: 'computed', falta: 'Falta el computed encontrados.' }),
           scriptContiene(/toLowerCase/, { falta: 'La comparación necesita toLowerCase.' }),
           scriptContiene(/if\s*\(\s*!\s*\w+\s*\)\s*return/, { falta: 'La validación del alta necesita su corte por vacío.' }),
           scriptContiene(/sombreros\.value\.push\s*\(/, { falta: 'Falta el push del alta.' }),

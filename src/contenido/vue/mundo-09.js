@@ -6,12 +6,16 @@
 //
 // Dialogos originales, en el registro de los personajes. Nada de los libros.
 
-import { comprobarVue, scriptContiene } from '../mundos/comprobaciones.js'
+import {
+  comprobarVue,
+  plantillaContiene,
+  scriptContiene,
+  scriptDeclara,
+  scriptDefine,
+  scriptImporta,
+  scriptLlama,
+} from '../mundos/comprobaciones.js'
 import { completar, eleccion, emparejar, ordenar, verdaderoFalso } from '../mundos/tipos-de-paso.js'
-
-function plantillaContiene(patron, mensaje) {
-  return (_doc, _ficheros, partido) => (patron.test(partido?.template || '') ? null : mensaje)
-}
 
 const APP_SEMBRADA = `<script setup>
 import { ref } from 'vue'
@@ -148,9 +152,7 @@ El \`if\` ejecuta la línea solo si la condición es verdad. Las reglas del nego
       pista: 'Recuerda el .value: en el script el ref se toca por dentro. Sin .value, no funciona.',
       comprobar: comprobarVue({
         script: [
-          scriptContiene(/function\s+quedarse\s*\(|const\s+quedarse\s*=/, {
-            falta: 'Falta declarar la función quedarse en el script.',
-          }),
+          scriptDefine('quedarse', { falta: 'Falta declarar la función quedarse en el script.' }),
           scriptContiene(/meLoQuedo\.value\s*(\+=|\+\+|=\s*meLoQuedo\.value\s*\+)/, {
             falta: 'La función tiene que sumar 1 al dato: meLoQuedo.value += 1. No olvides el .value.',
           }),
@@ -206,7 +208,7 @@ El \`if\` ejecuta la línea solo si la condición es verdad. Las reglas del nego
       pista: 'La función: <code>function soltar() { if (meLoQuedo.value &gt; 0) meLoQuedo.value -= 1 }</code>. Y el botón nuevo con <code>@click="soltar"</code>.',
       comprobar: comprobarVue({
         script: [
-          scriptContiene(/function\s+soltar\s*\(|const\s+soltar\s*=/, { falta: 'Falta la función soltar en el script.' }),
+          scriptDefine('soltar', { falta: 'Falta la función soltar en el script.' }),
           scriptContiene(/if\s*\(\s*meLoQuedo\.value\s*>\s*0\s*\)/, {
             falta: 'A soltar le falta el if (meLoQuedo.value > 0) que impide bajar de cero.',
           }),
@@ -286,9 +288,9 @@ El \`if\` ejecuta la línea solo si la condición es verdad. Las reglas del nego
         'Sin pistas. Deja el componente con el circuito entero: el ref <code>meLoQuedo</code>, la función <code>quedarse</code> que suma, la función <code>soltar</code> que resta con su <code>if</code> de no bajar de cero, un botón con <code>@click="quedarse"</code> y otro con <code>@click="soltar"</code>, y el <code>{{ meLoQuedo }}</code> a la vista.',
       comprobar: comprobarVue({
         script: [
-          scriptContiene(/const\s+meLoQuedo\s*=\s*ref\s*\(/, { falta: 'Falta el ref meLoQuedo.' }),
-          scriptContiene(/function\s+quedarse\s*\(|const\s+quedarse\s*=/, { falta: 'Falta la función quedarse.' }),
-          scriptContiene(/function\s+soltar\s*\(|const\s+soltar\s*=/, { falta: 'Falta la función soltar.' }),
+          scriptDeclara('meLoQuedo', { llamando: 'ref', falta: 'Falta el ref meLoQuedo.' }),
+          scriptDefine('quedarse', { falta: 'Falta la función quedarse.' }),
+          scriptDefine('soltar', { falta: 'Falta la función soltar.' }),
           scriptContiene(/if\s*\(\s*meLoQuedo\.value\s*>\s*0\s*\)/, { falta: 'A soltar le falta el if que impide bajar de cero.' }),
         ],
         template: [

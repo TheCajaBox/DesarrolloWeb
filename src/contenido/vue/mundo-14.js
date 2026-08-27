@@ -7,12 +7,16 @@
 //
 // Dialogos originales, en el registro de los personajes. Nada de los libros.
 
-import { comprobarVue, scriptContiene } from '../mundos/comprobaciones.js'
+import {
+  comprobarVue,
+  plantillaContiene,
+  scriptContiene,
+  scriptDeclara,
+  scriptDefine,
+  scriptImporta,
+  scriptLlama,
+} from '../mundos/comprobaciones.js'
 import { completar, eleccion, emparejar, verdaderoFalso } from '../mundos/tipos-de-paso.js'
-
-function plantillaContiene(patron, mensaje) {
-  return (_doc, _ficheros, partido) => (patron.test(partido?.template || '') ? null : mensaje)
-}
 
 const APP_SEMBRADA = `<script setup>
 import { computed, ref } from 'vue'
@@ -218,8 +222,8 @@ Con esas dos costuras, el dato vive en la memoria (rápido, reactivo) y duerme e
       pista: 'La línea queda: <code>import { computed, onMounted, ref, watch } from \'vue\'</code>.',
       comprobar: comprobarVue({
         script: [
-          scriptContiene(/import\s*\{[^}]*\bonMounted\b[^}]*\}\s*from\s*['"]vue['"]/, { falta: 'Falta onMounted en el import.' }),
-          scriptContiene(/import\s*\{[^}]*\bwatch\b[^}]*\}\s*from\s*['"]vue['"]/, { falta: 'Falta watch en el import.' }),
+          scriptImporta('onMounted', 'vue', { falta: 'Falta onMounted en el import.' }),
+          scriptImporta('watch', 'vue', { falta: 'Falta watch en el import.' }),
         ],
         exito: 'Ciclo de vida y vigilancia, importados. Vamos a coserlos al almacén del navegador.',
       }),
@@ -256,7 +260,7 @@ Con esas dos costuras, el dato vive en la memoria (rápido, reactivo) y duerme e
       comprobar: comprobarVue({
         script: [
           scriptContiene(/watch\s*\(\s*favoritos/, { falta: 'Falta el watch(favoritos, …).' }),
-          scriptContiene(/localStorage\.setItem\s*\(\s*['"]favoritos['"]/, {
+          scriptLlama('localStorage.setItem', {
             falta: "Dentro del watch falta localStorage.setItem('favoritos', …).",
           }),
           scriptContiene(/JSON\.stringify\s*\(/, { falta: 'localStorage solo guarda texto: hace falta JSON.stringify.' }),
@@ -274,8 +278,8 @@ Con esas dos costuras, el dato vive en la memoria (rápido, reactivo) y duerme e
       pista: 'Dentro: <code>const guardados = localStorage.getItem(\'favoritos\'); if (guardados) favoritos.value = JSON.parse(guardados)</code>.',
       comprobar: comprobarVue({
         script: [
-          scriptContiene(/onMounted\s*\(/, { falta: 'Falta el onMounted(…).' }),
-          scriptContiene(/localStorage\.getItem\s*\(\s*['"]favoritos['"]/, { falta: "Dentro falta localStorage.getItem('favoritos')." }),
+          scriptLlama('onMounted', { falta: 'Falta el onMounted(…).' }),
+          scriptLlama('localStorage.getItem', { falta: "Dentro falta localStorage.getItem('favoritos')." }),
           scriptContiene(/JSON\.parse\s*\(/, { falta: 'Lo guardado es texto: hace falta JSON.parse para reconstruir el array.' }),
           scriptContiene(/if\s*\(\s*\w+\s*\)/, { falta: 'Protege la lectura con un if: la primera visita no hay nada guardado (getItem da null).' }),
         ],
@@ -339,11 +343,11 @@ ___(() => {
         'Sin pistas. El cierre del acto: los imports de <code>onMounted</code> y <code>watch</code>, el <code>watch</code> de <code>favoritos</code> guardando con <code>JSON.stringify</code> y <code>{ deep: true }</code>, el <code>onMounted</code> recuperando con <code>getItem</code> + <code>if</code> + <code>JSON.parse</code>, y el contador <code>{{ favoritos.length }}</code> a la vista. Marca, recarga, comprueba: la web recuerda.',
       comprobar: comprobarVue({
         script: [
-          scriptContiene(/import\s*\{[^}]*\bonMounted\b[^}]*\}/, { falta: 'Falta el import de onMounted.' }),
+          scriptImporta('onMounted', 'vue', { falta: 'Falta el import de onMounted.' }),
           scriptContiene(/watch\s*\(\s*favoritos/, { falta: 'Falta el watch de favoritos.' }),
           scriptContiene(/JSON\.stringify\s*\(/, { falta: 'Falta JSON.stringify al guardar.' }),
           scriptContiene(/deep\s*:\s*true/, { falta: 'Falta el { deep: true }.' }),
-          scriptContiene(/onMounted\s*\(/, { falta: 'Falta el onMounted.' }),
+          scriptLlama('onMounted', { falta: 'Falta el onMounted.' }),
           scriptContiene(/JSON\.parse\s*\(/, { falta: 'Falta JSON.parse al recuperar.' }),
         ],
         template: [

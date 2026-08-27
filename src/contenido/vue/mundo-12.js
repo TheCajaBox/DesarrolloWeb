@@ -7,12 +7,16 @@
 //
 // Dialogos originales, en el registro de los personajes. Nada de los libros.
 
-import { comprobarVue, scriptContiene } from '../mundos/comprobaciones.js'
+import {
+  comprobarVue,
+  plantillaContiene,
+  scriptContiene,
+  scriptDeclara,
+  scriptDefine,
+  scriptImporta,
+  scriptLlama,
+} from '../mundos/comprobaciones.js'
 import { completar, eleccion, emparejar, verdaderoFalso } from '../mundos/tipos-de-paso.js'
-
-function plantillaContiene(patron, mensaje) {
-  return (_doc, _ficheros, partido) => (patron.test(partido?.template || '') ? null : mensaje)
-}
 
 const APP_SEMBRADA = `<script setup>
 import { ref } from 'vue'
@@ -181,9 +185,7 @@ const baratos = computed(() => sombreros.value.filter((s) => s.precio < 30))
       pista: 'Dentro de las mismas llaves del import que ya tienes, separado por coma.',
       comprobar: comprobarVue({
         script: [
-          scriptContiene(/import\s*\{[^}]*\bcomputed\b[^}]*\}\s*from\s*['"]vue['"]/, {
-            falta: 'Falta computed en el import de vue.',
-          }),
+          scriptImporta('computed', 'vue', { falta: 'Falta computed en el import de vue.' }),
         ],
         exito: 'Herramienta a bordo. Ahora, la primera fórmula.',
       }),
@@ -197,7 +199,7 @@ const baratos = computed(() => sombreros.value.filter((s) => s.precio < 30))
       pista: 'El esqueleto: <code>const total = computed(() =&gt; { let suma = 0; for (const s of sombreros.value) suma += s.precio; return suma })</code>.',
       comprobar: comprobarVue({
         script: [
-          scriptContiene(/const\s+total\s*=\s*computed\s*\(/, { falta: 'Falta const total = computed(…).' }),
+          scriptDeclara('total', { llamando: 'computed', falta: 'Falta const total = computed(…).' }),
           scriptContiene(/for\s*\(\s*const\s+\w+\s+of\s+sombreros\.value\s*\)|sombreros\.value\.reduce/, {
             falta: 'El cálculo tiene que recorrer sombreros.value (con for...of, o reduce si lo conoces).',
           }),
@@ -238,7 +240,7 @@ const baratos = computed(() => sombreros.value.filter((s) => s.precio < 30))
       pista: 'Una línea: <code>const baratos = computed(() =&gt; sombreros.value.filter((s) =&gt; s.precio &lt; 30))</code>.',
       comprobar: comprobarVue({
         script: [
-          scriptContiene(/const\s+baratos\s*=\s*computed\s*\(/, { falta: 'Falta const baratos = computed(…).' }),
+          scriptDeclara('baratos', { llamando: 'computed', falta: 'Falta const baratos = computed(…).' }),
           scriptContiene(/sombreros\.value\.filter\s*\(/, { falta: 'baratos tiene que usar sombreros.value.filter(…).' }),
           scriptContiene(/precio\s*<\s*30/, { falta: 'El filtro es precio < 30.' }),
         ],
@@ -313,10 +315,10 @@ const baratos = computed(() => sombreros.value.filter((s) => s.precio < 30))
         'Sin pistas. Monta el escaparate completo: el computed <code>total</code> (con su recorrido y su <code>return</code>), el computed <code>baratos</code> (con <code>filter</code> de <code>precio &lt; 30</code>), el <code>v-for</code> recorriendo <code>baratos</code>, los dos marcadores <code>{{ total }}</code> y <code>{{ baratos.length }}</code> a la vista, y un botón «Rebajas» con una función <code>rebajar</code> que reste 2 al precio de <strong>todos</strong> los sombreros (un <code>for...of</code>). Púlsalo y mira cómo total, cuenta y rejilla se recolocan solos.',
       comprobar: comprobarVue({
         script: [
-          scriptContiene(/const\s+total\s*=\s*computed\s*\(/, { falta: 'Falta el computed total.' }),
-          scriptContiene(/const\s+baratos\s*=\s*computed\s*\(/, { falta: 'Falta el computed baratos.' }),
+          scriptDeclara('total', { llamando: 'computed', falta: 'Falta el computed total.' }),
+          scriptDeclara('baratos', { llamando: 'computed', falta: 'Falta el computed baratos.' }),
           scriptContiene(/sombreros\.value\.filter\s*\(/, { falta: 'baratos necesita su filter.' }),
-          scriptContiene(/function\s+rebajar\s*\(|const\s+rebajar\s*=/, { falta: 'Falta la función rebajar.' }),
+          scriptDefine('rebajar', { falta: 'Falta la función rebajar.' }),
           scriptContiene(/for\s*\(\s*const\s+\w+\s+of\s+sombreros\.value\s*\)[\s\S]*?precio\s*-=|precio\s*-=\s*2/, {
             falta: 'rebajar tiene que recorrer los sombreros restando 2 al precio (precio -= 2).',
           }),

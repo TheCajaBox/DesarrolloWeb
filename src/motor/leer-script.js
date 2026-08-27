@@ -44,20 +44,47 @@ export function analizar(codigo) {
  * ya decidirá qué hacer.
  */
 export function sinComentariosNiCadenas(codigo) {
+  return borrar(codigo, { comentarios: true, cadenas: true })
+}
+
+/**
+ * El código sin comentarios, pero CON el contenido de las cadenas.
+ *
+ * Es la que usan las búsquedas de texto del taller: mata la trampa del
+ * comentario (que era la que colaba de verdad) y sigue permitiendo buscar
+ * cosas que viven dentro de cadenas, como `from 'vue'` o `'sombrero'`.
+ */
+export function sinComentarios(codigo) {
+  return borrar(codigo, { comentarios: true, cadenas: false })
+}
+
+// Sustituye por espacios lo que se quiera borrar, manteniendo las posiciones
+// (así los números de línea y columna siguen valiendo).
+function borrar(codigo, { comentarios, cadenas }) {
   const texto = String(codigo || '')
   const huecos = []
 
   let arbol
   try {
-    arbol = parse(texto, { ...OPCIONES, onComment: (bloque, cuerpo, desde, hasta) => huecos.push([desde, hasta]) })
+    arbol = parse(texto, {
+      ...OPCIONES,
+      onComment: (_bloque, _cuerpo, desde, hasta) => {
+        if (comentarios) huecos.push([desde, hasta])
+      },
+    })
   } catch {
+    // Si no compila se devuelve tal cual: es lo honesto mientras se escribe.
     return texto
   }
 
-  recorrer(arbol, (nodo) => {
-    if (nodo.type === 'Literal' && typeof nodo.value === 'string') huecos.push([nodo.start, nodo.end])
-    if (nodo.type === 'TemplateElement') huecos.push([nodo.start, nodo.end])
-  })
+  if (cadenas) {
+    recorrer(arbol, (nodo) => {
+      if (nodo.type === 'Literal' && typeof nodo.value === 'string') {
+        huecos.push([nodo.start, nodo.end])
+      }
+      if (nodo.type === 'TemplateElement') huecos.push([nodo.start, nodo.end])
+    })
+  }
 
   const letras = [...texto]
   for (const [desde, hasta] of huecos) {

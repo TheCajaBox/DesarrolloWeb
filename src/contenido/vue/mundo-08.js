@@ -7,15 +7,19 @@
 //
 // Dialogos originales, en el registro de los personajes. Nada de los libros.
 
-import { comprobarVue, scriptContiene } from '../mundos/comprobaciones.js'
+import {
+  comprobarVue,
+  plantillaContiene,
+  scriptContiene,
+  scriptDeclara,
+  scriptDefine,
+  scriptImporta,
+  scriptLlama,
+} from '../mundos/comprobaciones.js'
 import { completar, eleccion, emparejar, ordenar, verdaderoFalso } from '../mundos/tipos-de-paso.js'
 
 // Requisito de template como texto: las llaves dobles y las directivas no
 // sobreviven bien al DOMParser, así que se buscan sobre el texto crudo.
-function plantillaContiene(patron, mensaje) {
-  return (_doc, _ficheros, partido) => (patron.test(partido?.template || '') ? null : mensaje)
-}
-
 const APP_SEMBRADA = `<script setup>
 </script>
 
@@ -120,8 +124,8 @@ Esto es la **reactividad**, y es el corazón de Vue: tú cambias \`enCatalogo.va
       pista: 'Va dentro del bloque script, arriba del todo. Las llaves de {  ref  } son parte de la sintaxis.',
       comprobar: comprobarVue({
         script: [
-          scriptContiene(/import\s*\{[^}]*\bref\b[^}]*\}\s*from\s*['"]vue['"]/, {
-            falta: 'Falta el import: la línea import { ref } from \'vue\' en el script.',
+          scriptImporta('ref', 'vue', {
+            falta: "Falta el import: la línea import { ref } from 'vue' en el script.",
           }),
         ],
         exito: 'Herramienta importada. Ya puedes crear datos reactivos en este componente.',
@@ -136,8 +140,11 @@ Esto es la **reactividad**, y es el corazón de Vue: tú cambias \`enCatalogo.va
       pista: 'Una constante normal cuyo valor es ref(3): <code>const enCatalogo = ref(3)</code>.',
       comprobar: comprobarVue({
         script: [
-          scriptContiene(/const\s+enCatalogo\s*=\s*ref\s*\(\s*\d+\s*\)/, {
-            falta: 'Falta la línea const enCatalogo = ref(3) en el script (con un número dentro del ref).',
+          scriptDeclara('enCatalogo', {
+            llamando: 'ref',
+            con: 'numero',
+            falta: 'Falta la línea const enCatalogo = ref(3) en el script.',
+            malo: 'enCatalogo tiene que crearse con ref() y un número dentro.',
           }),
         ],
         exito: 'Un dato reactivo: una caja con un 3 dentro y un timbre que avisa a Vue cuando cambie.',
@@ -191,8 +198,10 @@ Esto es la **reactividad**, y es el corazón de Vue: tú cambias \`enCatalogo.va
       pista: 'El texto va entre comillas dentro del ref. Luego el h1 queda así: <code>&lt;h1&gt;{{ titulo }}&lt;/h1&gt;</code>.',
       comprobar: comprobarVue({
         script: [
-          scriptContiene(/const\s+titulo\s*=\s*ref\s*\(\s*['"`][^'"`]+['"`]\s*\)/, {
-            falta: 'Falta const titulo = ref(\'…\') con un texto dentro.',
+          scriptDeclara('titulo', {
+            llamando: 'ref',
+            con: 'texto',
+            falta: "Falta const titulo = ref('…') con un texto dentro.",
           }),
         ],
         template: [
@@ -270,9 +279,9 @@ const precio = ___(42)
         'Sin pistas. Deja el componente con: el import de <code>ref</code>, al menos <strong>dos</strong> refs (<code>titulo</code> con texto y <code>enCatalogo</code> con número), el <code>&lt;h1&gt;</code> enseñando <code>{{ titulo }}</code>, el párrafo enseñando <code>{{ enCatalogo }}</code>, y en algún sitio una interpolación con una <strong>expresión</strong> (por ejemplo <code>{{ enCatalogo - 1 }}</code>).',
       comprobar: comprobarVue({
         script: [
-          scriptContiene(/import\s*\{[^}]*\bref\b[^}]*\}\s*from\s*['"]vue['"]/, { falta: 'Falta el import de ref.' }),
-          scriptContiene(/const\s+titulo\s*=\s*ref\s*\(/, { falta: 'Falta el ref de titulo.' }),
-          scriptContiene(/const\s+enCatalogo\s*=\s*ref\s*\(/, { falta: 'Falta el ref de enCatalogo.' }),
+          scriptImporta('ref', 'vue', { falta: 'Falta el import de ref.' }),
+          scriptDeclara('titulo', { llamando: 'ref', falta: 'Falta el ref de titulo.' }),
+          scriptDeclara('enCatalogo', { llamando: 'ref', falta: 'Falta el ref de enCatalogo.' }),
         ],
         template: [
           plantillaContiene(/\{\{\s*titulo\s*\}\}/, 'El template no enseña {{ titulo }}.'),

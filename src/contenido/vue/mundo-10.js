@@ -6,12 +6,14 @@
 //
 // Dialogos originales, en el registro de los personajes. Nada de los libros.
 
-import { comprobarVue, scriptContiene } from '../mundos/comprobaciones.js'
+import {
+  comprobarVue,
+  plantillaContiene,
+  scriptContiene,
+  scriptDeclara,
+  scriptDefine,
+} from '../mundos/comprobaciones.js'
 import { completar, eleccion, emparejar, verdaderoFalso } from '../mundos/tipos-de-paso.js'
-
-function plantillaContiene(patron, mensaje) {
-  return (_doc, _ficheros, partido) => (patron.test(partido?.template || '') ? null : mensaje)
-}
 
 const APP_SEMBRADA = `<script setup>
 import { ref } from 'vue'
@@ -199,7 +201,7 @@ Esos dos puntos delante son \`v-bind\`, la directiva que **ata un atributo a una
       pista: 'LIMITE es una constante normal, sin ref: no cambia. El if de meter: <code>if (enCesta.value &lt; LIMITE)</code>.',
       comprobar: comprobarVue({
         script: [
-          scriptContiene(/const\s+LIMITE\s*=\s*\d+/, { falta: 'Falta const LIMITE = 5 en el script.' }),
+          scriptDeclara('LIMITE', { falta: 'Falta const LIMITE = 5 en el script.' }),
           scriptContiene(/if\s*\(\s*enCesta\.value\s*<\s*LIMITE\s*\)/, {
             falta: 'A meter le falta el if (enCesta.value < LIMITE) que respeta el límite.',
           }),
@@ -279,8 +281,8 @@ Esos dos puntos delante son \`v-bind\`, la directiva que **ata un atributo a una
         'Sin pistas. La cesta completa: el cartel de vacía con <code>v-if</code>, la cuenta con <code>v-else</code>, el <code>LIMITE</code> en el script con su <code>if</code> en <code>meter</code>, el aviso de lleno con <code>v-if</code>, el botón con <code>:disabled</code>… y un botón nuevo «Vaciar» (función <code>vaciar</code> que ponga el contador a 0) que <strong>solo exista</strong> si hay algo en la cesta.',
       comprobar: comprobarVue({
         script: [
-          scriptContiene(/const\s+LIMITE\s*=\s*\d+/, { falta: 'Falta const LIMITE en el script.' }),
-          scriptContiene(/function\s+vaciar\s*\(|const\s+vaciar\s*=/, { falta: 'Falta la función vaciar.' }),
+          scriptDeclara('LIMITE', { falta: 'Falta const LIMITE en el script.' }),
+          scriptDefine('vaciar', { falta: 'Falta la función vaciar.' }),
           scriptContiene(/enCesta\.value\s*=\s*0/, { falta: 'vaciar tiene que dejar la cesta a cero: enCesta.value = 0.' }),
         ],
         template: [

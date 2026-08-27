@@ -9,7 +9,7 @@
 // CommonJS (.cjs): el repo es "type": "module" y Electron va más fino en CJS.
 // Vite y su plugin (solo ESM) se cargan con import() dinámico.
 
-const { app, BrowserWindow, ipcMain, shell } = require('electron')
+const { app, BrowserWindow, Menu, ipcMain, shell } = require('electron')
 const path = require('node:path')
 const fs = require('node:fs/promises')
 const fsSinc = require('node:fs')
@@ -200,6 +200,66 @@ function mostrarFallo(ventana, error) {
   ventana.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(pagina)}`)
 }
 
+// El menú.
+//
+// Electron pone uno de fábrica en inglés (File / Edit / View / Window) con
+// cosas que aquí no vienen a cuento, y eso delata que la aplicación está a
+// medio acabar. Este es en español y solo tiene lo que sirve: los atajos de
+// edición (que hay que declarar o dejan de funcionar), el zoom, y los dos
+// sitios a los que se querría ir de verdad —la carpeta del proyecto y el
+// registro de arranque, que es lo que hay que mandar si algo falla—.
+function ponerMenu() {
+  const menu = Menu.buildFromTemplate([
+    {
+      label: 'Taller',
+      submenu: [
+        {
+          label: 'Abrir la carpeta de mi proyecto',
+          click: () => shell.openPath(PROYECTO),
+        },
+        {
+          label: 'Ver el registro de arranque',
+          click: () => shell.openPath(path.join(app.getPath('userData'), 'arranque.log')),
+        },
+        { type: 'separator' },
+        { label: 'Recargar el taller', accelerator: 'CmdOrCtrl+R', role: 'reload' },
+        { type: 'separator' },
+        { label: 'Salir', accelerator: 'CmdOrCtrl+Q', role: 'quit' },
+      ],
+    },
+    {
+      label: 'Edición',
+      submenu: [
+        { label: 'Deshacer', accelerator: 'CmdOrCtrl+Z', role: 'undo' },
+        { label: 'Rehacer', accelerator: 'CmdOrCtrl+Y', role: 'redo' },
+        { type: 'separator' },
+        { label: 'Cortar', accelerator: 'CmdOrCtrl+X', role: 'cut' },
+        { label: 'Copiar', accelerator: 'CmdOrCtrl+C', role: 'copy' },
+        { label: 'Pegar', accelerator: 'CmdOrCtrl+V', role: 'paste' },
+        { label: 'Seleccionar todo', accelerator: 'CmdOrCtrl+A', role: 'selectAll' },
+      ],
+    },
+    {
+      label: 'Ver',
+      submenu: [
+        { label: 'Más grande', accelerator: 'CmdOrCtrl+Plus', role: 'zoomIn' },
+        { label: 'Más pequeño', accelerator: 'CmdOrCtrl+-', role: 'zoomOut' },
+        { label: 'Tamaño normal', accelerator: 'CmdOrCtrl+0', role: 'resetZoom' },
+        { type: 'separator' },
+        { label: 'Pantalla completa', accelerator: 'F11', role: 'togglefullscreen' },
+        { type: 'separator' },
+        {
+          label: 'Herramientas de desarrollo',
+          accelerator: 'F12',
+          role: 'toggleDevTools',
+        },
+      ],
+    },
+  ])
+
+  Menu.setApplicationMenu(menu)
+}
+
 function crearVentana({ enBlanco = false } = {}) {
   const ventana = new BrowserWindow({
     width: 1440,
@@ -387,6 +447,7 @@ function rutaSegura(ruta) {
 app.whenReady().then(async () => {
   // La ventana se abre PRIMERO, con un aviso de que está arrancando. Así, si
   // algo falla, hay dónde contarlo (y si tarda, se ve que está trabajando).
+  ponerMenu()
   const ventana = crearVentana({ enBlanco: true })
   ventana.loadURL(
     'data:text/html;charset=utf-8,' +

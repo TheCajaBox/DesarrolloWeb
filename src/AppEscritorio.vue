@@ -3,7 +3,15 @@
 // web (mapa, panel de lección, tipos de paso, Steris, Wayne) y los conecta al
 // almacén de escritorio (contenido Vue, progreso local) y a los ficheros reales
 // del proyecto de la alumna.
-import { computed, onErrorCaptured, onMounted, provide, ref, watch } from 'vue'
+import {
+  computed,
+  onBeforeUnmount,
+  onErrorCaptured,
+  onMounted,
+  provide,
+  ref,
+  watch,
+} from 'vue'
 import { usarTaller } from './almacen/taller.js'
 import { usarCurso } from './almacen/curso.js'
 import { usarWayne } from './almacen/wayne.js'
@@ -227,6 +235,27 @@ async function sembrarMundo() {
   await taller.sembrar(curso.mundo.ficheros)
   if (salida.value !== 'vista') salida.value = 'vista'
 }
+
+// Las actualizaciones se avisan por boca de Wayne y no con una ventana a mitad
+// de una lección. La versión nueva se instala al cerrar la aplicación.
+let dejarDeEscucharActualizaciones = null
+
+onMounted(() => {
+  if (!window.taller?.alActualizar) return
+
+  dejarDeEscucharActualizaciones = window.taller.alActualizar(({ estado, version }) => {
+    if (estado === 'lista') {
+      wayne.decirTexto(
+        `Han traído una versión nueva del taller${version ? ` (la ${version})` : ''}. ` +
+          'Se pone sola la próxima vez que abras esto; tú sigue a lo tuyo.',
+      )
+    }
+  })
+})
+
+onBeforeUnmount(() => {
+  if (dejarDeEscucharActualizaciones) dejarDeEscucharActualizaciones()
+})
 
 // Todos los mundos abiertos (para revisar el temario) o de uno en uno.
 function alternarRevision() {

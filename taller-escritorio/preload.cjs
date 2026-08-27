@@ -21,6 +21,14 @@ contextBridge.exposeInMainWorld('taller', {
   // abre la carpeta. Devuelve { ok, ruta } o { ok: false, error }.
   exportar: () => ipcRenderer.invoke('taller:exportar'),
 
+  // Avisos de actualización: 'bajando' mientras se descarga, 'lista' cuando
+  // se aplicará al cerrar. Devuelve la función para darse de baja.
+  alActualizar: (escuchar) => {
+    const oyente = (_evento, dato) => escuchar(dato)
+    ipcRenderer.on('taller:actualizacion', oyente)
+    return () => ipcRenderer.removeListener('taller:actualizacion', oyente)
+  },
+
   // La terminal. Ejecuta comandos de verdad sobre el proyecto (npm, node,
   // git) y devuelve su salida a trozos, como cualquier terminal.
   terminal: {

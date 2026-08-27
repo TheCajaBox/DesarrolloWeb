@@ -155,6 +155,66 @@ function crearVentana({ enBlanco = false } = {}) {
 }
 
 // ---------------------------------------------------------------------------
+// Actualizaciones automáticas
+// ---------------------------------------------------------------------------
+//
+// La app comprueba si hay una versión nueva publicada en las releases del
+// repositorio, se la descarga en segundo plano y la instala al cerrar. Así un
+// arreglo llega solo, sin volver a pasar un instalador de 134 MB a mano.
+//
+// Sin interrumpir: nada de ventanas modales a mitad de una lección. Se avisa
+// en la interfaz y se aplica cuando ella cierra la aplicación.
+function vigilarActualizaciones(ventana) {
+  if (!app.isPackaged) {
+    apuntar('actualizaciones: en desarrollo no se comprueban')
+    return
+  }
+
+  let updater
+  try {
+    updater = require('electron-updater').autoUpdater
+  } catch (fallo) {
+    apuntar(`actualizaciones: no disponibles (${fallo.message})`)
+    return
+  }
+
+  updater.autoDownload = true
+  // Que la instale al salir, no a media faena.
+  updater.autoInstallOnAppQuit = true
+  updater.logger = { info: apuntar, warn: apuntar, error: apuntar, debug: () => {} }
+
+  const avisar = (estado, datos = {}) => {
+    if (!ventana.isDestroyed()) ventana.webContents.send('taller:actualizacion', { estado, ...datos })
+  }
+
+  updater.on('update-available', (info) => {
+    apuntar(`actualizaciones: hay versión ${info?.version}`)
+    avisar('bajando', { version: info?.version })
+  })
+
+  updater.on('update-not-available', () => apuntar('actualizaciones: ya estás al día'))
+
+  updater.on('download-progress', (progreso) => {
+    avisar('bajando', { porcentaje: Math.round(progreso?.percent || 0) })
+  })
+
+  updater.on('update-downloaded', (info) => {
+    apuntar(`actualizaciones: ${info?.version} lista, se instalará al cerrar`)
+    avisar('lista', { version: info?.version })
+  })
+
+  updater.on('error', (fallo) => {
+    // Sin conexión es lo normal en esta app: no es un error que contar a nadie.
+    apuntar(`actualizaciones: ${fallo?.message || fallo}`)
+  })
+
+  // Un poco después de arrancar, para no competir con la carga del taller.
+  setTimeout(() => {
+    updater.checkForUpdates().catch(() => {})
+  }, 8000)
+}
+
+// ---------------------------------------------------------------------------
 // La terminal
 // ---------------------------------------------------------------------------
 //
@@ -285,6 +345,7 @@ app.whenReady().then(async () => {
     await arrancarVites()
     apuntar(`interfaz lista en ${urlInterfaz}`)
     ventana.loadURL(urlInterfaz)
+    vigilarActualizaciones(ventana)
   } catch (error) {
     apuntar(`FALLO AL ARRANCAR: ${error && error.stack ? error.stack : error}`)
     mostrarFallo(ventana, error)

@@ -1,6 +1,6 @@
-// Mundo 27 (Vue) — El examen del sombrerero: retos sin guía.
+// Mundo 36 (Vue) — El examen del sombrerero: retos sin guía.
 //
-// Cierra el temario. No hay técnica nueva: hay seis retos de construcción
+// Cierra el temario entero (va detrás del Acto X: compilar y preparar). No hay técnica nueva: hay seis retos de construcción
 // sobre la tienda completa (router + Pinia + views), enunciados como los
 // pediría un cliente, sin pistas de sintaxis. Si salen, la alumna no ha
 // aprendido Vue: sabe Vue.
@@ -234,9 +234,9 @@ const FICHEROS_BASE = {
 }
 
 export default {
-  numero: 27,
-  acto: 'Publicar',
-  titulo: 'Mundo 27 · El examen del sombrerero',
+  numero: 36,
+  acto: 'Compilar y preparar',
+  titulo: 'Mundo 36 · El examen del sombrerero',
 
   entradilla: {
     quien: 'wayne',
@@ -469,7 +469,7 @@ Seis retos te esperan. Ninguno usa nada que no hayas hecho. Método, calma, y a 
 
   pasos: [
     {
-      id: '27-1',
+      id: '36-1',
       titulo: 'Encargo: la página «Sobre»',
       enunciado:
         'El cliente quiere una página «Sobre esta tienda» que cuente su historia: accesible en <code>/sobre</code>, con su título y al menos un párrafo con sustancia, y enlazada desde el menú de la cabecera. Nada más… y nada menos.',
@@ -489,7 +489,7 @@ Seis retos te esperan. Ninguno usa nada que no hayas hecho. Método, calma, y a 
     },
 
     {
-      id: '27-2',
+      id: '36-2',
       titulo: 'Encargo: el buscador del catálogo',
       enunciado:
         'El catálogo crece y el cliente quiere buscar: una caja de texto que filtre los sombreros por nombre en vivo, ignorando mayúsculas, con el listado recorriendo el resultado filtrado y un mensaje decente cuando no haya coincidencias.',
@@ -510,7 +510,7 @@ Seis retos te esperan. Ninguno usa nada que no hayas hecho. Método, calma, y a 
     },
 
     {
-      id: '27-3',
+      id: '36-3',
       titulo: 'Encargo: el contador de gangas',
       enunciado:
         'Marketing pide presumir de precios: sobre el listado del catálogo, un texto tipo «3 gangas por debajo de 30 €», con la cuenta calculada de los datos (si mañana cambian los precios, el número se corrige solo).',
@@ -529,7 +529,7 @@ Seis retos te esperan. Ninguno usa nada que no hayas hecho. Método, calma, y a 
     },
 
     {
-      id: '27-4',
+      id: '36-4',
       titulo: 'Encargo: el capricho de la cesta',
       enunciado:
         'En la pantalla de la cesta, cuando haya líneas, el cliente quiere ver cuál es «el capricho»: el sombrero MÁS CARO de la cesta, con su nombre. La lógica, donde corresponde: un getter nuevo del store llamado <code>masCaro</code>.',
@@ -543,7 +543,7 @@ Seis retos te esperan. Ninguno usa nada que no hayas hecho. Método, calma, y a 
     },
 
     {
-      id: '27-5',
+      id: '36-5',
       titulo: 'Encargo: que quepa en un móvil',
       enunciado:
         'El cliente lo mira todo desde el teléfono y la cabecera se le amontona. En el estilo de <code>App.vue</code>, una <code>@media</code> de pantalla estrecha (<code>max-width</code>) que recoloque la cabecera (por ejemplo, apilándola en columna con <code>flex-direction</code>).',
@@ -561,7 +561,7 @@ Seis retos te esperan. Ninguno usa nada que no hayas hecho. Método, calma, y a 
     },
 
     {
-      id: '27-6',
+      id: '36-6',
       titulo: 'Encargo final: revisión de calidad',
       enunciado:
         'Antes de entregar, el repaso del perfeccionista: ni un <code>v-html</code> en todo el proyecto, todos los <code>v-for</code> con su <code>:key</code>, y la persistencia de la cesta intacta (leerGuardado con try/catch y persistir en las actions). Revisa fichero a fichero; esto es lo que haría un lead antes del deploy.',
@@ -590,7 +590,7 @@ Seis retos te esperan. Ninguno usa nada que no hayas hecho. Método, calma, y a 
     },
 
     eleccion({
-      id: '27-7',
+      id: '36-7',
       titulo: 'La última pregunta',
       enunciado: 'Mañana el cliente pide algo que no has hecho nunca (un carrusel, un mapa, un chat). ¿Cuál es el primer movimiento correcto?',
       pista: 'Es el método del apunte, aplicado a lo desconocido.',

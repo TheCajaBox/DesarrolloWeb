@@ -482,6 +482,32 @@ export function existeFichero(ruta, { falta, vacio } = {}) {
   }
 }
 
+/**
+ * Que un fichero JSON sea JSON válido y cumpla lo que se le pida.
+ *
+ * Se parsea de verdad: una coma de más en un package.json es un fichero roto,
+ * y eso es exactamente lo que hay que aprender a ver. `revisar` recibe el
+ * objeto ya parseado y devuelve el problema, o null.
+ */
+export function jsonValido(ruta, revisar, { falta, roto } = {}) {
+  return (_doc, ficheros) => {
+    const contenido = ficheros?.[ruta]
+    if (contenido === undefined) return falta || `No existe el fichero ${ruta}.`
+
+    let datos
+    try {
+      datos = JSON.parse(String(contenido))
+    } catch (fallo) {
+      return (
+        roto ||
+        `${ruta} no es JSON válido: ${fallo.message}. Ojo a las comas de más y a las comillas: en JSON las claves van entre comillas dobles y no se admiten comentarios.`
+      )
+    }
+
+    return revisar ? revisar(datos, ficheros) : null
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Requisitos de CSS
 // ---------------------------------------------------------------------------

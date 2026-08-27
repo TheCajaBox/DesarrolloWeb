@@ -43,6 +43,7 @@ const ACENTOS = {
   'El servidor': '#7d89b0',
   Publicar: '#d9a13b',
   'La base de datos': '#6f9bb5',
+  'Compilar y preparar': '#b0846f',
 }
 
 const actos = computed(() => {

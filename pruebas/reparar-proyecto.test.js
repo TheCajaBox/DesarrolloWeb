@@ -97,7 +97,7 @@ describe('la reparación', () => {
     expect(disco['proyecto/src/App.vue']).toBe(APP_BUENA)
   })
 
-  it('guarda lo roto al lado, por si había algo aprovechable', () => {
+  it('guarda lo roto aparte, en .reparados, por si había algo aprovechable', () => {
     const { disco, ayudas } = discoDeMentira({
       'plantilla/src/App.vue': APP_BUENA,
       'proyecto/src/App.vue': HTML_DENTRO_DEL_VUE,
@@ -105,7 +105,7 @@ describe('la reparación', () => {
 
     repararProyecto(ayudas)
 
-    expect(disco['proyecto/src/App.vue.roto']).toBe(HTML_DENTRO_DEL_VUE)
+    expect(disco['proyecto/.reparados/src-App.vue']).toBe(HTML_DENTRO_DEL_VUE)
   })
 
   it('NO toca el trabajo de la alumna', () => {
@@ -145,7 +145,7 @@ const misSombreros = ref(['bombín', 'panamá'])
 
     expect(apuntes).toHaveLength(1)
     expect(apuntes[0]).toMatch(/reparado/i)
-    expect(apuntes[0]).toMatch(/\.roto/)
+    expect(apuntes[0]).toMatch(/\.reparados/)
   })
 
   it('repara varios a la vez si hace falta', () => {

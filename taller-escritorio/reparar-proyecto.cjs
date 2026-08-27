@@ -80,9 +80,12 @@ function repararProyecto({ leer, escribir, existe, plantilla, proyecto, apuntar 
     const { hayQueReponer, porque } = revisar(ruta, leer(suyo))
     if (!hayQueReponer) continue
 
-    // Lo roto se guarda al lado antes de reponerlo: si resulta que había algo
-    // aprovechable, no se ha perdido.
-    const copia = `${suyo}.roto`
+    // Lo roto se guarda antes de reponerlo: si había algo aprovechable, no se
+    // ha perdido. Pero NO al lado del original: un «App.vue.roto» en medio del
+    // árbol de ficheros es un fichero raro que quien aprende no entiende ni
+    // debe tocar. Se aparta a una carpeta que empieza por punto, que es la que
+    // el taller ya no lista.
+    const copia = proyecto(`.reparados/${ruta.replace(/[\\/]/g, '-')}`)
     try {
       if (!existe(copia)) escribir(copia, leer(suyo))
     } catch {
@@ -90,8 +93,8 @@ function repararProyecto({ leer, escribir, existe, plantilla, proyecto, apuntar 
     }
 
     escribir(suyo, leer(original))
-    reparados.push({ ruta, porque })
-    apuntar(`reparado: ${porque} (lo anterior quedó en ${ruta}.roto)`)
+    reparados.push({ ruta, porque, copia })
+    apuntar(`reparado: ${porque} (lo anterior quedó en .reparados/)`)
   }
 
   return reparados

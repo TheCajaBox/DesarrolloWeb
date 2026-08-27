@@ -84,7 +84,10 @@ function prepararProyecto() {
     try {
       repararProyecto({
         leer: (ruta) => fsSinc.readFileSync(ruta, 'utf8'),
-        escribir: (ruta, contenido) => fsSinc.writeFileSync(ruta, contenido, 'utf8'),
+        escribir: (ruta, contenido) => {
+          fsSinc.mkdirSync(path.dirname(ruta), { recursive: true })
+          fsSinc.writeFileSync(ruta, contenido, 'utf8')
+        },
         existe: (ruta) => fsSinc.existsSync(ruta),
         plantilla: (relativa) => path.join(PLANTILLA, relativa),
         proyecto: (relativa) => path.join(PROYECTO, relativa),

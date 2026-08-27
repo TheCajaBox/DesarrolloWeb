@@ -126,9 +126,15 @@ if (ts?.javascriptDefaults) {
 
 registrarAyudasVue(monaco)
 
+// La URI de un fichero del proyecto. Una sola función, para que el modelo y la
+// comprobación de "¿este modelo es de esta ruta?" no puedan discrepar.
+function uriDe(ruta) {
+  return `inmemory://proyecto/${ruta || 'sin-nombre'}`
+}
+
 // Un modelo por ruta: al volver a un fichero, el deshacer sigue donde estaba.
 function modeloDe(ruta, contenido, extension) {
-  const uri = monaco.Uri.parse(`inmemory://proyecto/${ruta || 'sin-nombre'}`)
+  const uri = monaco.Uri.parse(uriDe(ruta))
   const existente = monaco.editor.getModel(uri)
 
   if (existente) {
@@ -190,6 +196,13 @@ function montar() {
 
   editor.onDidChangeModelContent(() => {
     if (cargandoFuera) return
+
+    // Guarda contra el peor fallo posible de un editor: escribir el contenido
+    // de un fichero encima de OTRO. Si el modelo activo no es el de la ruta
+    // que nos han pasado (puede pasar mientras se cambia de fichero, cuando
+    // ruta y contenido llegan en momentos distintos), no se emite nada.
+    if (editor.getModel()?.uri.toString() !== uriDe(props.ruta)) return
+
     emitir('escribir', editor.getValue())
   })
 

@@ -1,12 +1,18 @@
-<!doctype html>
-<html lang="es">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Cambia esto</title>
-  </head>
-  <body>
-    <div id="app"></div>
-    <script type="module" src="/src/main.js"></script>
-  </body>
-</html>
+<script setup>
+</script>
+
+<template>
+  <main>
+    <h1>Sombreros que merecen la pena</h1>
+    <p>Una colección pequeña y con muy poco criterio.</p>
+  </main>
+</template>
+
+<style scoped>
+main {
+  font-family: system-ui, sans-serif;
+  max-width: 40rem;
+  margin: 2rem auto;
+  padding: 0 1rem;
+}
+</style>

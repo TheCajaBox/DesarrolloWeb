@@ -14,8 +14,12 @@ import { onBeforeUnmount, onMounted, ref } from 'vue'
 import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import '@xterm/xterm/css/xterm.css'
+import { usarColeccion } from '../almacen/coleccion.js'
+import { sombreroDelComando } from '../motor/escondites.js'
 
 const emitir = defineEmits(['ejecutando'])
+
+const coleccion = usarColeccion()
 
 const contenedor = ref(null)
 
@@ -84,6 +88,11 @@ async function ejecutar(comando) {
 
   historial.unshift(limpio)
   enHistorial = -1
+
+  // Algunas órdenes valen algo más que su salida.
+  const premio = sombreroDelComando(limpio)
+  if (premio) coleccion.encontrar(premio)
+
   corriendo = true
   emitir('ejecutando', true)
   term.write('\r\n')

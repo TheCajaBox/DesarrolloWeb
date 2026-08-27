@@ -9,6 +9,18 @@
 
 const novedades = [
   {
+    version: '0.1.6',
+    titulo: 'Hay sombreros escondidos por el taller',
+    puntos: [
+      'Hay quince sombreros repartidos por la aplicación. No hacen falta para nada: no abren lecciones ni bloquean nada, y si no encuentras ninguno el curso funciona igual.',
+      'No se encuentran buscando píxeles raros: se ganan haciendo cosas. Alguno premia algo que ninguna comprobación puede medir.',
+      'Tienes una pestaña nueva, «Sombreros», con la vitrina: los que llevas y la silueta de los que faltan, cada una con su pista.',
+      'Y en esa misma pestaña, cuando lleves un poco de temario, Wayne te propondrá una apuesta. Te enseña un trozo de código y se juega a que no aciertas qué pinta en la página.',
+    ],
+    wayne:
+      'He escondido quince sombreros por aquí. No te voy a decir dónde, que entonces no tiene gracia ninguna. Solo te digo que uno de ellos se gana fallando, y ahí lo dejo.',
+  },
+  {
     version: '0.1.5',
     titulo: 'Las actualizaciones ahora preguntan',
     puntos: [

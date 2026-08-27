@@ -4,10 +4,19 @@
 // forma parte de aprender.
 import { onMounted, ref } from 'vue'
 import { usarSql } from '../almacen/sql.js'
+import { usarColeccion } from '../almacen/coleccion.js'
 
 // Steris traduce el error, pero el error original se sigue enseñando: leerlos
 // es parte de lo que hay que aprender.
 const emitir = defineEmits(['explicar-error'])
+
+const coleccion = usarColeccion()
+
+// Preguntarle a los datos a la cara, sin que ninguna lección lo mande.
+function lanzar() {
+  coleccion.encontrar('sombrero-de-las-tablas')
+  sql.ejecutar()
+}
 
 const sql = usarSql()
 const caja = ref(null)
@@ -53,7 +62,7 @@ function etiquetaVacia(valor) {
         @keydown="alTeclear"
       ></textarea>
       <div class="botones">
-        <button class="principal" :disabled="sql.ejecutando || !sql.consulta.trim()" @click="sql.ejecutar()">
+        <button class="principal" :disabled="sql.ejecutando || !sql.consulta.trim()" @click="lanzar">
           {{ sql.ejecutando ? 'Ejecutando…' : 'Ejecutar' }}
         </button>
         <span class="atajo">Ctrl+Enter</span>

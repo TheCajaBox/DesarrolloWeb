@@ -160,3 +160,32 @@ describe('los rastros no se quedan obsoletos', () => {
     }
   })
 })
+
+describe('las notas no destripan los sombreros', () => {
+  // Las novedades se leen antes de jugar. Nombrar un sombrero concreto o decir
+  // qué hay que hacer para conseguirlo arruina justo lo que se anuncia.
+  it('ninguna entrada nombra un sombrero del catálogo', async () => {
+    const { default: sombreros } = await import('../src/contenido/sombreros.js')
+    const texto = JSON.stringify(novedades).toLowerCase()
+
+    for (const sombrero of sombreros) {
+      expect(texto, `las novedades nombran «${sombrero.nombre}»`).not.toContain(
+        sombrero.nombre.toLowerCase(),
+      )
+      expect(texto, `las novedades citan el id ${sombrero.id}`).not.toContain(sombrero.id)
+    }
+  })
+
+  it('ni copia el texto de ninguna pista, que ya la enseña la vitrina', () => {
+    // Decir que la vitrina tiene pistas está bien; traérselas aquí, no.
+    const texto = JSON.stringify(novedades).toLowerCase()
+
+    return import('../src/contenido/sombreros.js').then(({ default: sombreros }) => {
+      for (const sombrero of sombreros) {
+        // Un trozo largo de la pista basta: si aparece, es que se ha copiado.
+        const trozo = sombrero.pista.toLowerCase().slice(0, 30)
+        expect(texto, `las novedades copian la pista de «${sombrero.nombre}»`).not.toContain(trozo)
+      }
+    })
+  })
+})

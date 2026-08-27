@@ -277,6 +277,13 @@ function crearVentana({ enBlanco = false } = {}) {
     },
   })
 
+  // Cosas que solo el proceso principal ve y a la interfaz le interesan. De
+  // momento, abrir las herramientas de desarrollo: se puede hacer con F12, con
+  // el menú o desde dentro, y así valen las tres.
+  ventana.webContents.on('devtools-opened', () => {
+    if (!ventana.isDestroyed()) ventana.webContents.send('taller:sucede', 'devtools')
+  })
+
   if (!enBlanco) ventana.loadURL(urlInterfaz)
   return ventana
 }

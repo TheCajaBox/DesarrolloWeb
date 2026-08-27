@@ -7,11 +7,14 @@
 //
 // Steris es exhaustiva sin ser condescendiente: la definición completa, el
 // «ojo» cuando hay una trampa, y nada de tono de manual para principiantes.
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import terminos from '../contenido/glosario/terminos.js'
 import sterisAvatar from '../recursos/steris-avatar.webp'
+import { usarColeccion } from '../almacen/coleccion.js'
 
 const emitir = defineEmits(['volver'])
+
+const coleccion = usarColeccion()
 
 const busqueda = ref('')
 
@@ -29,6 +32,14 @@ const filtrados = computed(() => {
     const donde = [entrada.termino, ...(entrada.alias || []), entrada.definicion, entrada.ojo || '']
     return donde.some((texto) => sinAcentos(texto).includes(aguja))
   })
+})
+
+// Una búsqueda de verdad: tres letras y que encuentre algo. Teclear una letra
+// suelta y borrarla no es consultar nada.
+watch([busqueda, filtrados], ([texto, lista]) => {
+  if (sinAcentos(String(texto).trim()).length >= 3 && lista.length) {
+    coleccion.encontrar('sombrero-de-steris')
+  }
 })
 
 // Agrupados por letra inicial, que es como se busca en un glosario.

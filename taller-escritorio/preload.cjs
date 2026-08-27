@@ -28,6 +28,15 @@ contextBridge.exposeInMainWorld('taller', {
   // un botón: la app no se cierra sola. Devuelve { ok } según si había algo.
   instalarActualizacion: () => ipcRenderer.invoke('taller:instalar-actualizacion'),
 
+  // Cosas que pasan en el proceso principal y la interfaz quiere saber (por
+  // ahora, que se han abierto las herramientas de desarrollo). Devuelve la
+  // función para darse de baja.
+  alSuceder: (escuchar) => {
+    const oyente = (_evento, que) => escuchar(que)
+    ipcRenderer.on('taller:sucede', oyente)
+    return () => ipcRenderer.removeListener('taller:sucede', oyente)
+  },
+
   // Avisos de actualización: 'bajando' mientras se descarga, 'lista' cuando
   // está descargada y esperando que ella diga. Devuelve la función para
   // darse de baja.

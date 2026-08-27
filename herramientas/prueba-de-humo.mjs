@@ -12,8 +12,9 @@
 //
 // Si algo falla, sale con código 1 y no hay instalador que enviar.
 
-import { spawn } from 'node:child_process'
+import { spawn, spawnSync } from 'node:child_process'
 import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync } from 'node:fs'
+import net from 'node:net'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 
@@ -29,6 +30,34 @@ function comprobar(que, bien, detalle = '') {
   if (!bien) fallos += 1
   const marca = bien ? '  ok  ' : ' FALLA'
   console.log(`${marca} ${que}${detalle ? ` — ${detalle}` : ''}`)
+}
+
+// En Windows, matar el proceso de Electron deja vivos a sus hijos, y uno de
+// ellos es el que tiene los puertos. Si sobrevive, la siguiente ejecución le
+// pregunta A ÉL y da todo por bueno sin haber arrancado nada: una prueba que
+// miente es peor que no tenerla.
+function matarDelTodo(proceso) {
+  if (!proceso?.pid) return
+  try {
+    spawnSync('taskkill', ['/PID', String(proceso.pid), '/T', '/F'], { stdio: 'ignore' })
+  } catch {
+    /* si taskkill no está, queda el kill de abajo */
+  }
+  try {
+    proceso.kill()
+  } catch {
+    /* ya estaba muerto */
+  }
+}
+
+/** Si hay algo escuchando en ese puerto ahora mismo. */
+async function estaOcupado(puerto) {
+  return new Promise((responder) => {
+    const prueba = net.createServer()
+    prueba.once('error', () => responder(true))
+    prueba.once('listening', () => prueba.close(() => responder(false)))
+    prueba.listen(puerto, '127.0.0.1')
+  })
 }
 
 async function esperar(ms) {
@@ -54,6 +83,16 @@ if (!existsSync(APP)) {
   console.error(`No encuentro ${APP}.`)
   console.error('Constrúyela primero: npm run instalador\n')
   process.exit(1)
+}
+
+// Y antes de nada: que no haya ya una instancia escuchando. Si la hay, todo lo
+// de abajo le preguntaría a ELLA y saldría verde sin haber probado nada.
+for (const puerto of [5199, 5280]) {
+  if (await estaOcupado(puerto)) {
+    console.error(`El puerto ${puerto} está ocupado: hay una instancia del taller abierta.`)
+    console.error('Ciérrala (o mátala) antes de la prueba, o esto daría un verde falso.\n')
+    process.exit(1)
+  }
 }
 
 // Datos de usuario en una carpeta temporal: la prueba no toca el progreso ni
@@ -159,11 +198,7 @@ try {
   // 8. Y no se ha muerto por el camino.
   comprobar('la app sigue viva', salida === null, salida === null ? '' : `salió con ${salida}`)
 } finally {
-  try {
-    hijo.kill()
-  } catch {
-    /* ya estaba muerta */
-  }
+  matarDelTodo(hijo)
   await esperar(1500)
   try {
     rmSync(datos, { recursive: true, force: true })
@@ -228,11 +263,7 @@ try {
   const compila = await pedir(`${PROYECTO}src/App.vue`, 8)
   comprobar('su componente vuelve a compilar', compila.estado === 200 && /setup|_sfc_main/.test(compila.texto))
 } finally {
-  try {
-    viejo.kill()
-  } catch {
-    /* ya estaba muerta */
-  }
+  matarDelTodo(viejo)
   await esperar(1500)
   try {
     rmSync(datosViejos, { recursive: true, force: true })

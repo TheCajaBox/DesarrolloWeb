@@ -15,6 +15,7 @@ import {
 import { usarTaller } from './almacen/taller.js'
 import { usarCurso } from './almacen/curso.js'
 import { usarWayne } from './almacen/wayne.js'
+import { usarColeccion } from './almacen/coleccion.js'
 import { usarSql } from './almacen/sql.js'
 import mundos from './contenido/vue/indice.js'
 import {
@@ -33,15 +34,19 @@ import Glosario from './componentes/Glosario.vue'
 import Mapa from './componentes/Mapa.vue'
 import Novedades from './componentes/Novedades.vue'
 import PanelMundo from './componentes/PanelMundo.vue'
+import SombreroEncontrado from './componentes/SombreroEncontrado.vue'
+import Sombrerera from './componentes/Sombrerera.vue'
 import Steris from './componentes/Steris.vue'
 import TerminalIntegrada from './componentes/Terminal.vue'
 import VistaPreviaEscritorio from './componentes/VistaPreviaEscritorio.vue'
 import WayneCompanero from './componentes/WayneCompanero.vue'
+import { sombreroDeLoQuePasa, sombrerosEnElCodigo } from './motor/escondites.js'
 import { avisar, pedirTexto, preguntar } from './motor/dialogos.js'
 
 const taller = usarTaller()
 const curso = usarCurso()
 const sql = usarSql()
+const coleccion = usarColeccion()
 
 // Los componentes reutilizados (Mapa, PanelMundo) piden el almacén por
 // inyección. Se lo damos aquí: el de escritorio.
@@ -116,6 +121,11 @@ function arrastrar(cual, evento) {
 
   const soltar = () => {
     arrastrando.value = null
+    // Al soltar, no al pulsar: un clic despistado en la manilla no cuenta como
+    // haber reorganizado nada.
+    if (Math.abs(anchos.value[cual] - inicial) > 8) {
+      coleccion.encontrar('sombrero-del-que-ordena')
+    }
     window.removeEventListener('pointermove', mover)
     window.removeEventListener('pointerup', soltar)
     try {
@@ -243,6 +253,28 @@ async function sembrarMundo() {
   if (salida.value !== 'vista') salida.value = 'vista'
 }
 
+// ---- Los sombreros escondidos ----
+//
+// Los escondites que dependen de un componente concreto (la terminal, el
+// glosario, la consola) los apunta ese componente llamando al almacén. Aquí
+// quedan los que solo se ven desde arriba: la hora, la constancia, lo que se
+// escribe en los ficheros y lo que pasa fuera de la ventana.
+//
+// Las reglas viven en motor/escondites.js. Aquí solo se llama.
+let dejarDeEscucharSucesos = null
+
+function revisarElCodigo(codigo) {
+  if (!codigo) return
+  for (const id of sombrerosEnElCodigo(codigo, { mundoActual: curso.numero })) {
+    coleccion.encontrar(id)
+  }
+}
+
+function verLaSombrerera() {
+  coleccion.olvidarUltimo()
+  pestana.value = 'sombreros'
+}
+
 // ---- El aviso de «novedades de la versión» ----
 //
 // Cuando la app se actualiza sola, lo suyo es contar qué ha cambiado. Se
@@ -322,6 +354,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   if (dejarDeEscucharActualizaciones) dejarDeEscucharActualizaciones()
+  if (dejarDeEscucharSucesos) dejarDeEscucharSucesos()
 })
 
 // Todos los mundos abiertos (para revisar el temario) o de uno en uno.
@@ -344,6 +377,7 @@ async function exportarWeb() {
   try {
     const resultado = await window.taller.exportar()
     if (resultado?.ok) {
+      coleccion.encontrar('panama-del-que-publica')
       wayne.decirTexto(
         'Exportada. Eso que se acaba de abrir es tu web de verdad, compilada y lista para cualquier hosting. Ha quedado apañada.',
       )
@@ -374,7 +408,27 @@ onMounted(async () => {
 
   reiniciarInactividad()
   mirarNovedades()
+
+  // Los que dependen del reloj y del calendario. La fecha entra por parámetro
+  // para que las reglas se puedan probar sin tocar la hora del sistema.
+  const ahora = new Date()
+  coleccion.revisarLaHora(ahora)
+  coleccion.apuntarVisita(ahora)
+
+  // Y lo que ya hubiera escrito de antes en el fichero abierto.
+  revisarElCodigo(taller.borrador)
+
+  if (window.taller?.alSuceder) {
+    dejarDeEscucharSucesos = window.taller.alSuceder((que) => {
+      const premio = sombreroDeLoQuePasa(que)
+      if (premio) coleccion.encontrar(premio)
+    })
+  }
 })
+
+// Lo que va escribiendo. Es una comprobación de texto, barata, y el almacén
+// ignora los que ya tenía, así que puede correr en cada tecla sin ruido.
+watch(() => taller.borrador, revisarElCodigo)
 
 // Reacciona a cada comprobación: acierto o fallo, y recuerda.
 watch(
@@ -382,8 +436,19 @@ watch(
   (nuevo, viejo) => {
     if (!nuevo || nuevo === viejo) return
     reiniciarInactividad()
-    if (nuevo.superado) wayne.alAcertar()
-    else if (curso.paso) wayne.alFallar(curso.paso.id)
+
+    const idPaso = curso.paso?.id
+    if (nuevo.superado) {
+      wayne.alAcertar()
+      // Insistir cuenta tanto como acertar a la primera, y a veces más.
+      coleccion.revisarLaTerquedad(idPaso)
+      if (curso.completo) coleccion.revisarElMundoLimpio(curso.pasos.map((paso) => paso.id))
+    } else {
+      if (idPaso) {
+        coleccion.apuntarFallo(idPaso)
+        wayne.alFallar(idPaso)
+      }
+    }
   },
 )
 
@@ -552,6 +617,14 @@ async function borrar(ruta) {
           <button class="pestana" :class="{ activa: pestana === 'armonia' }" @click="pestana = 'armonia'">
             Armonía
           </button>
+          <button
+            class="pestana"
+            :class="{ activa: pestana === 'sombreros' }"
+            title="Los sombreros escondidos por el taller"
+            @click="pestana = 'sombreros'"
+          >
+            Sombreros
+          </button>
         </nav>
 
         <!-- Armonía trae su propio scroll: si el contenedor también scrollea,
@@ -582,6 +655,8 @@ async function borrar(ruta) {
           </div>
 
           <Armonia v-if="pestana === 'armonia'" />
+
+          <Sombrerera v-if="pestana === 'sombreros'" :mundo-actual="curso.numero" />
         </div>
       </aside>
 
@@ -664,7 +739,15 @@ async function borrar(ruta) {
       </section>
     </main>
 
-    <div v-if="actualizacion || novedades.length" class="avisos">
+    <div v-if="coleccion.ultimo || actualizacion || novedades.length" class="avisos">
+      <SombreroEncontrado
+        v-if="coleccion.ultimo"
+        :sombrero="coleccion.ultimo"
+        :cuantos="coleccion.cuantos"
+        :total="coleccion.total"
+        @cerrar="coleccion.olvidarUltimo()"
+        @ver="verLaSombrerera"
+      />
       <AvisoActualizacion
         v-if="actualizacion"
         :version="actualizacion.version"

@@ -13,6 +13,7 @@ import { usarMundo } from '../almacen/mundo.js'
 import { esEscritorio } from '../motor/ficheros.js'
 import { AVISO_LOCAL, responderEnLocal } from '../motor/armonia-local.js'
 import Narrador from './Narrador.vue'
+import { usarColeccion } from '../almacen/coleccion.js'
 
 // El almacén se inyecta (escritorio provee el suyo, con el temario Vue); si
 // nadie lo provee, el del taller web. El mismo componente sirve para los dos.
@@ -26,6 +27,8 @@ const fondo = ref(null)
 
 const MAXIMO = 500
 
+const coleccion = usarColeccion()
+
 async function preguntar() {
   const texto = pregunta.value.trim()
   if (!texto || esperando.value) return
@@ -33,6 +36,7 @@ async function preguntar() {
   conversacion.value.push({ quien: 'yo', texto })
   pregunta.value = ''
   esperando.value = true
+  coleccion.encontrar('sombrero-de-armonia')
 
   try {
     // Sin servidor: responde la Armonía local y no se llama a nada.

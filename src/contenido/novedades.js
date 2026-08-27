@@ -9,6 +9,15 @@
 
 const novedades = [
   {
+    version: '0.1.4',
+    titulo: 'El aviso, ahora sí, para quien venía de antes',
+    puntos: [
+      'Si ya usabas el taller antes de que existiera este cartel, la primera actualización te lo cuenta igual. Antes se quedaba callado justo esa vez.',
+    ],
+    wayne:
+      'Escribí un cartel para avisarte de los cambios y resulta que el propio cartel no sabía avisar del primero. Muy propio de mí, oye.',
+  },
+  {
     version: '0.1.3',
     titulo: 'Este cartelito, y un fichero raro que sobraba',
     puntos: [
@@ -58,6 +67,29 @@ export function novedadesDesde(vista, actual) {
   return novedades.filter(
     (entrada) => comparar(entrada.version, vista) > 0 && comparar(entrada.version, actual) <= 0,
   )
+}
+
+// Rastros que deja el taller la primera vez que alguien lo abre. Basta con
+// cualquiera de ellos: Wayne apunta su memoria en cuanto dice la primera frase,
+// así que existe desde el primer arranque, aunque no se complete ningún paso.
+const RASTROS = ['sombrero-wayne', 'sombrero-progreso-vue', 'sombrero-revision', 'sombrero-anchos']
+
+/**
+ * Si esta instalación ya se había usado antes.
+ *
+ * Sirve para distinguir a quien acaba de instalar (no tiene novedades, tiene
+ * un taller por delante) de quien viene de una versión anterior a este aviso y
+ * por tanto no tiene ninguna «última versión vista» que comparar.
+ */
+export function yaHabiaTaller(almacen) {
+  if (!almacen) return false
+  return RASTROS.some((clave) => {
+    try {
+      return almacen.getItem(clave) !== null
+    } catch {
+      return false
+    }
+  })
 }
 
 /**

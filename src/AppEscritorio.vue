@@ -17,7 +17,11 @@ import { usarCurso } from './almacen/curso.js'
 import { usarWayne } from './almacen/wayne.js'
 import { usarSql } from './almacen/sql.js'
 import mundos from './contenido/vue/indice.js'
-import { novedadesDeLaVersion, novedadesDesde } from './contenido/novedades.js'
+import {
+  novedadesDeLaVersion,
+  novedadesDesde,
+  yaHabiaTaller,
+} from './contenido/novedades.js'
 import ArbolFicheros from './componentes/ArbolFicheros.vue'
 import Armonia from './componentes/Armonia.vue'
 import ConsolaSql from './componentes/ConsolaSql.vue'
@@ -277,20 +281,11 @@ async function mirarNovedades() {
   }
 
   // Sin clave guardada hay dos casos muy distintos: acabar de instalar (no
-  // hay novedades, hay taller) o venir de una versión anterior al aviso. Se
-  // distinguen por el progreso: si ya había trabajado aquí, se le cuenta lo
-  // que trae la versión que le acaba de llegar.
-  const yaUsabaElTaller = () => {
-    try {
-      return localStorage.getItem('sombrero-progreso-vue') !== null
-    } catch {
-      return false
-    }
-  }
-
+  // hay novedades, hay taller) o venir de una versión anterior a este aviso.
+  // Se distinguen por los rastros que deja el taller al usarse.
   let hay = []
   if (vista) hay = novedadesDesde(vista, version)
-  else if (yaUsabaElTaller()) hay = novedadesDeLaVersion(version)
+  else if (yaHabiaTaller(localStorage)) hay = novedadesDeLaVersion(version)
   if (hay.length) novedades.value = hay
   // Sin nada que contar (primera instalación, o ya vista) se apunta y punto.
   else apuntarVersionVista(version)

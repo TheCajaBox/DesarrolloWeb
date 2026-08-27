@@ -1,8 +1,10 @@
+import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import novedades, {
   comparar,
   novedadesDeLaVersion,
   novedadesDesde,
+  yaHabiaTaller,
 } from '../src/contenido/novedades.js'
 
 // El aviso de novedades tiene una regla dura: solo se enseña lo que ha pasado
@@ -101,5 +103,60 @@ describe('quien venía de una versión anterior al aviso', () => {
   it('y si esa versión no trae nada anotado, se calla', () => {
     expect(novedadesDeLaVersion('9.9.9')).toEqual([])
     expect(novedadesDeLaVersion(undefined)).toEqual([])
+  })
+})
+
+describe('distinguir una instalación nueva de una que ya se usaba', () => {
+  const almacenCon = (claves) => ({ getItem: (c) => (c in claves ? claves[c] : null) })
+
+  it('un taller recién instalado no ha dejado rastro', () => {
+    expect(yaHabiaTaller(almacenCon({}))).toBe(false)
+  })
+
+  it('la memoria de Wayne basta: existe desde el primer arranque', () => {
+    // Es el rastro importante. El progreso solo aparece al superar un paso, así
+    // que quien abrió el taller y no llegó a completar nada también cuenta.
+    expect(yaHabiaTaller(almacenCon({ 'sombrero-wayne': '{}' }))).toBe(true)
+  })
+
+  it('el progreso, la revisión o los anchos también valen', () => {
+    expect(yaHabiaTaller(almacenCon({ 'sombrero-progreso-vue': '[]' }))).toBe(true)
+    expect(yaHabiaTaller(almacenCon({ 'sombrero-revision': 'no' }))).toBe(true)
+    expect(yaHabiaTaller(almacenCon({ 'sombrero-anchos': '{}' }))).toBe(true)
+  })
+
+  it('sin almacén, o con uno que revienta, dice que no', () => {
+    expect(yaHabiaTaller(null)).toBe(false)
+    expect(yaHabiaTaller(undefined)).toBe(false)
+    expect(
+      yaHabiaTaller({
+        getItem() {
+          throw new Error('modo incógnito y sin permiso')
+        },
+      }),
+    ).toBe(false)
+  })
+})
+
+describe('los rastros no se quedan obsoletos', () => {
+  // Si mañana se renombra una clave de localStorage, la lista de rastros
+  // dejaría de detectar nada y el aviso se callaría justo cuando debe hablar,
+  // sin que ninguna prueba se queje. Esto lo ata: cada rastro tiene que
+  // seguir escribiéndose en algún sitio del código.
+  it('cada rastro sigue existiendo en el código que lo escribe', () => {
+    // Las rutas van desde la raíz, que es donde vitest corre.
+    const fuentes = ['src/almacen/curso.js', 'src/almacen/wayne.js', 'src/AppEscritorio.vue']
+      .map((fichero) => readFileSync(fichero, 'utf8'))
+      .join('\n')
+
+    // Los mismos que usa yaHabiaTaller. Si se añade uno, se añade aquí.
+    for (const rastro of [
+      'sombrero-wayne',
+      'sombrero-progreso-vue',
+      'sombrero-revision',
+      'sombrero-anchos',
+    ]) {
+      expect(fuentes, `el rastro ${rastro} ya no lo escribe nadie`).toContain(rastro)
+    }
   })
 })

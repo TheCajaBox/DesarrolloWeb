@@ -101,5 +101,44 @@ export const usarSql = defineStore('sql', {
       this.error = null
       await this.refrescarEsquema()
     },
+
+    // La base de partida de un mundo. Solo se siembra si la base esta VACIA:
+    // si ya hay tablas, son SUS tablas y no se tocan. Igual que con los
+    // ficheros, un mundo nuevo puede necesitar que algo exista, pero no puede
+    // reescribir lo que ya habia.
+    async sembrar(guion) {
+      if (!guion) return false
+
+      await this.arrancar()
+      if (!this.listo) return false
+
+      await this.refrescarEsquema()
+      if (this.esquema.length) return false
+
+      const motor = await import('../motor/sql.js')
+      try {
+        await motor.ejecutarGuion(guion)
+      } catch (fallo) {
+        this.error = fallo.message
+        return false
+      }
+
+      await this.refrescarEsquema()
+      return true
+    },
+
+    // Volver a empezar el mundo: base limpia y la semilla otra vez.
+    async reiniciarCon(guion) {
+      await this.reiniciar()
+      if (!guion) return
+
+      const motor = await import('../motor/sql.js')
+      try {
+        await motor.ejecutarGuion(guion)
+      } catch (fallo) {
+        this.error = fallo.message
+      }
+      await this.refrescarEsquema()
+    },
   },
 })

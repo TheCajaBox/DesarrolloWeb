@@ -7,9 +7,12 @@ import { computed, onErrorCaptured, onMounted, provide, ref, watch } from 'vue'
 import { usarTaller } from './almacen/taller.js'
 import { usarCurso } from './almacen/curso.js'
 import { usarWayne } from './almacen/wayne.js'
+import { usarSql } from './almacen/sql.js'
 import mundos from './contenido/vue/indice.js'
 import ArbolFicheros from './componentes/ArbolFicheros.vue'
 import Armonia from './componentes/Armonia.vue'
+import ConsolaSql from './componentes/ConsolaSql.vue'
+import VisorEsquema from './componentes/VisorEsquema.vue'
 import Dialogo from './componentes/Dialogo.vue'
 import Editor from './componentes/Editor.vue'
 import Glosario from './componentes/Glosario.vue'
@@ -22,6 +25,7 @@ import { avisar, pedirTexto, preguntar } from './motor/dialogos.js'
 
 const taller = usarTaller()
 const curso = usarCurso()
+const sql = usarSql()
 
 // Los componentes reutilizados (Mapa, PanelMundo) piden el almacén por
 // inyección. Se lo damos aquí: el de escritorio.
@@ -119,6 +123,7 @@ const ACENTOS = {
   'Estado compartido': '#5fae9e',
   'El servidor': '#7d89b0',
   Publicar: '#d9a13b',
+  'La base de datos': '#6f9bb5',
 }
 const acento = computed(() => ACENTOS[curso.mundo?.acto] || '#dfb96f')
 
@@ -133,7 +138,21 @@ const progreso = computed(() => {
 // Steris.
 const steris = ref({ termino: null, error: null })
 const explicarTermino = (t) => (steris.value = { termino: t, error: null })
+const explicarError = (e) => (steris.value = { termino: null, error: e })
 const callarASteris = () => (steris.value = { termino: null, error: null })
+
+// ---- La columna de la derecha: resultado, base de datos o esquema ----
+const salida = ref('vista')
+
+async function abrirSql() {
+  salida.value = 'sql'
+  await sql.arrancar()
+}
+
+async function abrirEsquema() {
+  salida.value = 'esquema'
+  await sql.arrancar()
+}
 
 // Wayne acompañante: un almacén con memoria decide lo que dice, y el panel fijo
 // lo muestra.
@@ -147,7 +166,18 @@ function reiniciarInactividad() {
 }
 
 async function sembrarMundo() {
-  if (curso.mundo) await taller.sembrar(curso.mundo.ficheros)
+  if (!curso.mundo) return
+
+  // Los mundos de base de datos no tienen ficheros: tienen una base de
+  // partida. Y se abren mirando a la consola, que es donde se trabaja.
+  if (curso.mundo.sql) {
+    await sql.sembrar(curso.mundo.semilla)
+    salida.value = 'sql'
+    return
+  }
+
+  await taller.sembrar(curso.mundo.ficheros)
+  if (salida.value !== 'vista') salida.value = 'vista'
 }
 
 // Todos los mundos abiertos (para revisar el temario) o de uno en uno.
@@ -246,15 +276,21 @@ async function abrirMundo(numero) {
 }
 
 async function reiniciarMundo() {
+  const esSql = Boolean(curso.mundo?.sql)
+
   const seguro = await preguntar({
     titulo: 'Volver a empezar este mundo',
-    texto:
-      'Los ficheros de este mundo vuelven a como estaban, y se borra tu progreso en él. Lo que hayas creado tú por tu cuenta se queda.',
+    texto: esSql
+      ? 'La base de datos se borra entera y vuelve a como estaba al empezar el mundo. Se borra también tu progreso en él.'
+      : 'Los ficheros de este mundo vuelven a como estaban, y se borra tu progreso en él. Lo que hayas creado tú por tu cuenta se queda.',
     confirmar: 'Empezar de nuevo',
     peligro: true,
   })
   if (!seguro) return
-  await taller.restaurar(curso.mundo.ficheros)
+
+  if (esSql) await sql.reiniciarCon(curso.mundo.semilla)
+  else await taller.restaurar(curso.mundo.ficheros)
+
   curso.reiniciar()
 }
 
@@ -427,7 +463,36 @@ async function borrar(ruta) {
       ></div>
 
       <section class="derecha">
-        <VistaPreviaEscritorio />
+        <nav class="pestanas">
+          <button
+            class="pestana"
+            :class="{ activa: salida === 'vista' }"
+            @click="salida = 'vista'"
+          >
+            Resultado
+          </button>
+          <button class="pestana" :class="{ activa: salida === 'sql' }" @click="abrirSql">
+            Base de datos
+          </button>
+          <button class="pestana" :class="{ activa: salida === 'esquema' }" @click="abrirEsquema">
+            Esquema
+            <span v-if="sql.avisosGraves" class="chincheta">{{ sql.avisosGraves }}</span>
+          </button>
+        </nav>
+
+        <!-- La vista previa se esconde, no se destruye: un v-if recargaría el
+             proyecto de la alumna cada vez que se cambia de pestaña. -->
+        <div class="hueco-salida">
+          <div v-show="salida === 'vista'" class="lleno">
+            <VistaPreviaEscritorio />
+          </div>
+          <div v-show="salida === 'sql'" class="lleno">
+            <ConsolaSql @explicar-error="explicarError" />
+          </div>
+          <div v-show="salida === 'esquema'" class="lleno">
+            <VisorEsquema />
+          </div>
+        </div>
       </section>
     </main>
 
@@ -689,6 +754,37 @@ async function borrar(ruta) {
 .derecha {
   min-width: 0;
   min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.hueco-salida {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+}
+
+/* Cada panel de salida ocupa el hueco entero; los que no toca, escondidos
+   (no destruidos: la vista previa no debe recargarse al cambiar de pestaña). */
+.lleno {
+  position: absolute;
+  inset: 0;
+  min-height: 0;
+}
+
+/* El número de avisos graves del esquema, sobre la pestaña. */
+.chincheta {
+  display: inline-grid;
+  place-items: center;
+  min-width: 1.05rem;
+  height: 1.05rem;
+  margin-left: 0.35rem;
+  padding: 0 0.2rem;
+  border-radius: 99px;
+  background: color-mix(in srgb, var(--rojo, #a03e2d) 75%, transparent);
+  color: #fff;
+  font-size: 0.62rem;
+  font-variant-numeric: tabular-nums;
 }
 
 .mini {

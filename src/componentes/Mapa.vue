@@ -23,7 +23,7 @@ const mundo = inject('almacenCurso', () => usarMundo(), true)
 // estática —solo cambia el progreso—, así que se captura una vez.
 const mundos = mundo.todos
 
-const ROMANOS = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII']
+const ROMANOS = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X']
 
 // Los mismos colores que usa la cabecera del taller. Aquí se ven todos a la
 // vez, y eso solo ya le da forma a la página. Cubre los dos temarios: el del
@@ -42,6 +42,7 @@ const ACENTOS = {
   'Estado compartido': '#5fae9e',
   'El servidor': '#7d89b0',
   Publicar: '#d9a13b',
+  'La base de datos': '#6f9bb5',
 }
 
 const actos = computed(() => {

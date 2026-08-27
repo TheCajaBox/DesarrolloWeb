@@ -54,7 +54,12 @@ describe('invariantes del temario Vue', () => {
         }
       })
 
-      it('la solución de referencia supera TODOS los pasos', async () => {
+      // Los mundos de base de datos no tienen ficheros ni solución en
+      // ficheros: su estado vive en SQLite y los prueba mundos-sql.test.js,
+      // ejecutando SQL de verdad.
+      const deFicheros = !mundo.sql
+
+      it.skipIf(!deFicheros)('la solución de referencia supera TODOS los pasos', async () => {
         expect(mundo.solucion).toBeTruthy()
         for (const p of mundo.pasos) {
           const r = await p.comprobar(mundo.solucion, p.respuestaCorrecta ?? null)

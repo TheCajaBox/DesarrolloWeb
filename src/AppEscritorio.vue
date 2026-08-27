@@ -305,6 +305,10 @@ async function borrar(ruta) {
   height: 100%;
   display: flex;
   flex-direction: column;
+  /* La app es la que reparte el alto: nada puede empujar la página entera.
+     Sin esto, una lección larga estiraba la fila del grid y aparecía un
+     scroll de página sin tope. */
+  overflow: hidden;
 }
 
 .cabecera {
@@ -428,6 +432,9 @@ async function borrar(ruta) {
   min-height: 0;
   display: grid;
   grid-template-columns: 30rem minmax(0, 1fr) minmax(0, 1fr);
+  /* La única fila mide lo que quede de ventana, nunca lo que pida el
+     contenido: cada columna hace su propio scroll por dentro. */
+  grid-template-rows: minmax(0, 1fr);
 }
 
 .lateral {
@@ -494,6 +501,7 @@ async function borrar(ruta) {
   display: flex;
   flex-direction: column;
   min-width: 0;
+  min-height: 0;
   border-right: 1px solid var(--borde);
 }
 .tira {
@@ -507,6 +515,7 @@ async function borrar(ruta) {
 
 .derecha {
   min-width: 0;
+  min-height: 0;
 }
 
 .mini {

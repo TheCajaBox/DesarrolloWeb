@@ -5,11 +5,18 @@
 // blanca (solo titulo, enunciado y leccion), alli esta la instruccion de
 // sistema, y alli se filtran las peticiones de solucion. Desde aqui no se
 // puede tocar nada de eso ni desde las herramientas de desarrollo.
-import { nextTick, ref } from 'vue'
+// En la app de escritorio no hay servidor ni conexión: allí responde la
+// Armonía local (glosario de Steris + lecciones de Wax), con las mismas reglas
+// de personaje. Ver motor/armonia-local.js.
+import { inject, nextTick, ref } from 'vue'
 import { usarMundo } from '../almacen/mundo.js'
+import { esEscritorio } from '../motor/ficheros.js'
+import { AVISO_LOCAL, responderEnLocal } from '../motor/armonia-local.js'
 import Narrador from './Narrador.vue'
 
-const mundo = usarMundo()
+// El almacén se inyecta (escritorio provee el suyo, con el temario Vue); si
+// nadie lo provee, el del taller web. El mismo componente sirve para los dos.
+const mundo = inject('almacenCurso', () => usarMundo(), true)
 
 const pregunta = ref('')
 const conversacion = ref([])
@@ -28,6 +35,19 @@ async function preguntar() {
   esperando.value = true
 
   try {
+    // Sin servidor: responde la Armonía local y no se llama a nada.
+    if (esEscritorio) {
+      const dicho = conversacion.value.filter((turno) => turno.quien === 'armonia').length
+      const local = responderEnLocal({
+        pregunta: texto,
+        mundo: mundo.mundo,
+        paso: mundo.paso,
+        turno: dicho,
+      })
+      conversacion.value.push({ quien: 'armonia', texto: local.texto, modo: local.modo })
+      return
+    }
+
     const respuesta = await fetch('/api/armonia', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -73,8 +93,11 @@ async function preguntar() {
   <div class="armonia">
     <div ref="fondo" class="hilo">
       <p v-if="!conversacion.length" class="entrada">
-        Preguntame lo que no entiendas. La solución no te la voy a dar, pero puedo ayudarte a
-        llegar a ella.
+        {{
+          esEscritorio
+            ? AVISO_LOCAL
+            : 'Pregúntame lo que no entiendas. La solución no te la voy a dar, pero puedo ayudarte a llegar a ella.'
+        }}
       </p>
 
       <template v-for="(turno, i) in conversacion" :key="i">

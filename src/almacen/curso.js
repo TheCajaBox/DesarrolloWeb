@@ -30,6 +30,29 @@ function escribirProgreso(ids) {
   }
 }
 
+// Modo revisión: abre TODOS los mundos, sin pedir que se terminen los
+// anteriores. Es para poder recorrer y revisar el temario de un tirón; con él
+// apagado, el curso vuelve a abrirse mundo a mundo. Se recuerda entre
+// sesiones, y arranca encendido mientras el temario se está revisando.
+const CLAVE_REVISION = 'sombrero-revision'
+
+function leerRevision() {
+  try {
+    const guardado = localStorage.getItem(CLAVE_REVISION)
+    return guardado === null ? true : guardado === 'si'
+  } catch {
+    return true
+  }
+}
+
+function escribirRevision(activa) {
+  try {
+    localStorage.setItem(CLAVE_REVISION, activa ? 'si' : 'no')
+  } catch {
+    /* sin persistencia; vale para esta sesión */
+  }
+}
+
 export const usarCurso = defineStore('curso', {
   state: () => ({
     numero: 1,
@@ -37,6 +60,8 @@ export const usarCurso = defineStore('curso', {
     resultados: {},
     elecciones: {},
     comprobando: false,
+    // Con esto en true, todos los mundos están abiertos (ver estaAbierto).
+    revision: leerRevision(),
   }),
 
   getters: {
@@ -70,7 +95,11 @@ export const usarCurso = defineStore('curso', {
         return otro.pasos.every((paso) => this.resultados[paso.id]?.superado)
       }
     },
-    estaAbierto() {
+    // Si el mundo estaría abierto POR PROGRESO, sin contar el modo revisión.
+    // Se separa de estaAbierto porque hay dos preguntas distintas: "¿puedo
+    // entrar?" (donde el modo revisión manda) y "¿por dónde iba?" (donde no
+    // debe mandar, o al abrir el taller aterrizarías en el último mundo).
+    abiertoPorProgreso() {
       return (numero) => {
         const indice = mundos.findIndex((m) => m.numero === Number(numero))
         if (indice === -1) return false
@@ -78,13 +107,30 @@ export const usarCurso = defineStore('curso', {
         return this.mundoTerminado(mundos[indice - 1].numero)
       }
     },
+
+    estaAbierto() {
+      return (numero) => {
+        const indice = mundos.findIndex((m) => m.numero === Number(numero))
+        if (indice === -1) return false
+        // En modo revisión no hay puertas cerradas.
+        if (this.revision) return true
+        return this.abiertoPorProgreso(numero)
+      }
+    },
     ultimoAbierto() {
-      const abiertos = mundos.filter((m) => this.estaAbierto(m.numero))
+      const abiertos = mundos.filter((m) => this.abiertoPorProgreso(m.numero))
       return abiertos.length ? abiertos[abiertos.length - 1] : mundos[0]
     },
   },
 
   actions: {
+    // Enciende o apaga el modo revisión (todos los mundos abiertos).
+    alternarRevision() {
+      this.revision = !this.revision
+      escribirRevision(this.revision)
+      return this.revision
+    },
+
     elegir(idPaso, indice) {
       this.elecciones = { ...this.elecciones, [idPaso]: indice }
     },

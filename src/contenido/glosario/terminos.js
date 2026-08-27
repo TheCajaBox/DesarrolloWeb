@@ -399,8 +399,10 @@ const terminos = [
     ojo: 'Un 404 o un 500 NO lanzan error: para fetch, contestar ya es éxito. La comprobación respuesta.ok es trabajo tuyo.',
   },
   {
+    // Ojo: "asincronía" y "asíncrono" ya son de la entrada de arriba, que
+    // explica el concepto. Esta explica su gramática en JavaScript.
     termino: 'async',
-    alias: ['await', 'asincronía', 'asíncrono', 'promesa', 'promesas'],
+    alias: ['await', 'promesa', 'promesas'],
     definicion:
       'La gramática de las esperas: async marca una función que puede esperar, y await pausa esa función hasta que una promesa entrega su valor, sin congelar la página.',
   },

@@ -9,8 +9,10 @@ import { usarCurso } from './almacen/curso.js'
 import { usarWayne } from './almacen/wayne.js'
 import mundos from './contenido/vue/indice.js'
 import ArbolFicheros from './componentes/ArbolFicheros.vue'
+import Armonia from './componentes/Armonia.vue'
 import Dialogo from './componentes/Dialogo.vue'
 import Editor from './componentes/Editor.vue'
+import Glosario from './componentes/Glosario.vue'
 import Mapa from './componentes/Mapa.vue'
 import PanelMundo from './componentes/PanelMundo.vue'
 import Steris from './componentes/Steris.vue'
@@ -68,6 +70,16 @@ function reiniciarInactividad() {
 
 async function sembrarMundo() {
   if (curso.mundo) await taller.sembrar(curso.mundo.ficheros)
+}
+
+// Todos los mundos abiertos (para revisar el temario) o de uno en uno.
+function alternarRevision() {
+  const abierto = curso.alternarRevision()
+  wayne.decirTexto(
+    abierto
+      ? 'Te he quitado los candados: entra donde quieras y cotillea el temario a gusto.'
+      : 'Candados puestos otra vez. Cada mundo se abre al terminar el anterior, como debe ser.',
+  )
 }
 
 // Exportar: el build real de Vite sobre el proyecto. En la app de escritorio
@@ -199,7 +211,23 @@ async function borrar(ruta) {
       <nav class="nav">
         <button :class="{ activo: vista === 'mapa' }" @click="vista = 'mapa'">Mapa</button>
         <button :class="{ activo: vista === 'taller' }" @click="vista = 'taller'">Taller</button>
+        <button :class="{ activo: vista === 'glosario' }" @click="vista = 'glosario'">
+          Glosario
+        </button>
       </nav>
+
+      <button
+        class="mini candado"
+        :class="{ suelto: curso.revision }"
+        :title="
+          curso.revision
+            ? 'Todos los mundos abiertos, para revisar el temario. Pulsa para volver a abrirlos por orden.'
+            : 'Los mundos se abren al terminar el anterior. Pulsa para abrirlos todos y revisar.'
+        "
+        @click="alternarRevision"
+      >
+        {{ curso.revision ? 'Todo abierto' : 'Por orden' }}
+      </button>
 
       <span class="hueco"></span>
 
@@ -239,7 +267,14 @@ async function borrar(ruta) {
 
     <p v-if="cargando" class="cargando">Abriendo el taller&hellip;</p>
 
-    <Mapa v-else-if="vista === 'mapa'" class="entra" @abrir="abrirMundo" />
+    <Mapa
+      v-else-if="vista === 'mapa'"
+      class="entra"
+      @abrir="abrirMundo"
+      @glosario="vista = 'glosario'"
+    />
+
+    <Glosario v-else-if="vista === 'glosario'" class="entra" @volver="vista = 'mapa'" />
 
     <main v-else class="paneles">
       <aside class="lateral">
@@ -250,9 +285,14 @@ async function borrar(ruta) {
           <button class="pestana" :class="{ activa: pestana === 'ficheros' }" @click="pestana = 'ficheros'">
             Ficheros
           </button>
+          <button class="pestana" :class="{ activa: pestana === 'armonia' }" @click="pestana = 'armonia'">
+            Armonía
+          </button>
         </nav>
 
-        <div class="contenido-lateral">
+        <!-- Armonía trae su propio scroll: si el contenedor también scrollea,
+             salen dos barras peleándose. -->
+        <div class="contenido-lateral" :class="{ 'sin-scroll': pestana === 'armonia' }">
           <PanelMundo
             v-show="pestana === 'leccion'"
             :proyecto="taller.proyecto"
@@ -276,6 +316,8 @@ async function borrar(ruta) {
               @renombrar="() => {}"
             />
           </div>
+
+          <Armonia v-if="pestana === 'armonia'" />
         </div>
       </aside>
 
@@ -486,6 +528,11 @@ async function borrar(ruta) {
   overflow-y: auto;
 }
 
+/* Armonía scrollea por dentro; aquí sobra la barra. */
+.contenido-lateral.sin-scroll {
+  overflow: hidden;
+}
+
 .titulo-lateral {
   display: flex;
   align-items: center;
@@ -527,6 +574,34 @@ async function borrar(ruta) {
 }
 .mini:hover {
   color: var(--acento);
+  background: none;
+}
+
+/* El interruptor de los candados. Apagado es lo normal (curso por orden);
+   encendido se nota, porque es un estado de revisión, no el de siempre. */
+.candado {
+  border: 1px solid var(--borde);
+  border-radius: 99px;
+  padding: 0.2rem 0.6rem;
+  font-size: 0.72rem;
+  white-space: nowrap;
+}
+
+.candado::before {
+  content: '🔒 ';
+}
+
+.candado.suelto {
+  border-color: color-mix(in srgb, var(--verde) 55%, transparent);
+  color: var(--verde);
+}
+
+.candado.suelto::before {
+  content: '🔓 ';
+}
+
+.candado:hover {
+  border-color: var(--laton);
   background: none;
 }
 

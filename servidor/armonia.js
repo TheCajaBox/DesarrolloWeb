@@ -10,6 +10,11 @@
 import { Hono } from 'hono'
 import { usuarioIdDe } from './identidad.js'
 import mundos from '../src/contenido/mundos/indice.js'
+import {
+  NEGATIVAS,
+  pareceQuePideSolucion,
+  taparCodigo,
+} from '../src/motor/armonia-comun.js'
 
 export const armonia = new Hono()
 
@@ -38,34 +43,11 @@ Reglas que no puedes saltarte:
 
 No conoces la solucion de este ejercicio: no te la han dado. No te la inventes ni finjas tenerla.`
 
-// Peticiones que no merecen gastar Neurons: se cortan antes de llamar al modelo.
-const PIDE_SOLUCION = [
-  /\b(dame|damelo|escribeme|hazme|ponme|dime)\b[^?]{0,40}\b(la\s+)?(solucion|respuesta|codigo)\b/i,
-  /\bcomo\s+(se\s+)?(hace|resuelve)\s+(el\s+)?(ejercicio|paso|reto)\b/i,
-  /\bresuelve(me)?(lo)?\b/i,
-  /\bcopia(me)?\s+el\s+codigo\b/i,
-  /\bcual\s+es\s+la\s+respuesta\b/i,
-]
-
-const NEGATIVAS = [
-  'Eso no te lo voy a dar, y no es por fastidiar: si te lo escribo yo, el paso se cierra y tu sigues igual. Cuentame que has intentado y por donde se te ha torcido.',
-  'La solucion no. Pero dime que crees que deberia pasar y que pasa en realidad, y desde ahi tiramos.',
-  'No. Te propongo otra cosa: explicame con tus palabras que se supone que tiene que hacer ese trozo. Muchas veces el fallo aparece solo al decirlo en voz alta.',
-]
-
-// Sin esto los patrones no valen para nada: estan escritos sin acentos, y en
-// espanol se escribe "solucion" con tilde, "codigo" con tilde y "cual" con
-// tilde. "Dame la solucion" pasaba el filtro solo por llevar acento.
-function sinAcentos(texto) {
-  return String(texto || '')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-}
-
-export function pareceQuePideSolucion(texto) {
-  const llano = sinAcentos(texto)
-  return PIDE_SOLUCION.some((patron) => patron.test(llano))
-}
+// El detector de "dame la solucion", las negativas y el tapador de codigo
+// viven en src/motor/armonia-comun.js: los comparte con la Armonia local de la
+// app de escritorio, para que las dos se comporten igual. Se re-exportan
+// porque las pruebas (y quien lea este fichero) los buscan aqui.
+export { pareceQuePideSolucion, taparCodigo }
 
 // Distinguir "se han acabado los Neurons del dia" de "esto esta roto". Se mira
 // el texto del error porque Workers AI no expone un codigo estable para esto.
@@ -96,14 +78,9 @@ export function contextoPermitido(numeroMundo, idPaso) {
     .join('\n\n')
 }
 
-// PROTECCION 4 — filtrado de salida.
-// Aunque el modelo se venga arriba y suelte codigo, aqui se tapa mientras el
-// paso siga abierto.
-export function taparCodigo(texto) {
-  return texto
-    .replace(/```[\s\S]*?```/g, '\n_(Aqui habia codigo. No mientras el paso siga abierto.)_\n')
-    .replace(/(?:^|\n)(?: {4}|\t)[^\n]+(?:\n(?: {4}|\t)[^\n]+)*/g, '\n_(Aqui habia codigo.)_\n')
-}
+// PROTECCION 4 — filtrado de salida: taparCodigo, arriba en el re-export.
+// Aunque el modelo se venga arriba y suelte codigo, se tapa mientras el paso
+// siga abierto.
 
 async function consumirCuota(c, usuarioId) {
   const dia = new Date().toISOString().slice(0, 10)

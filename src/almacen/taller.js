@@ -19,6 +19,9 @@ export const usarTaller = defineStore('taller', {
     proyecto: 'catalogo',
     ficheros: [],
     rutaActiva: null,
+    // Las pestañas: los ficheros abiertos, en el orden en que se abrieron. La
+    // activa es rutaActiva; cerrar una pestaña no borra nada del disco.
+    abiertos: [],
     borrador: '',
     // De qué fichero es el borrador. Si no cuadra con rutaActiva, no se guarda:
     // ver el comentario de abrir().
@@ -65,6 +68,8 @@ export const usarTaller = defineStore('taller', {
     async abrir(ruta) {
       // Lo que haya sin guardar se guarda antes de cambiar de fichero.
       await this.guardarYa()
+
+      if (ruta && !this.abiertos.includes(ruta)) this.abiertos = [...this.abiertos, ruta]
 
       // El contenido se lee ANTES de mover rutaActiva, y las dos asignaciones
       // van seguidas sin ningún await en medio.
@@ -145,9 +150,43 @@ export const usarTaller = defineStore('taller', {
       }
     },
 
+    /**
+     * Cierra una pestaña. NO toca el disco: solo la quita de la tira.
+     *
+     * Si se cierra la que estaba abierta, se pasa a la vecina —la de la
+     * derecha, y si no hay, la de la izquierda—, que es lo que hace cualquier
+     * editor y lo que la mano espera.
+     */
+    async cerrarPestana(ruta) {
+      const donde = this.abiertos.indexOf(ruta)
+      if (donde === -1) return
+
+      const quedan = this.abiertos.filter((otra) => otra !== ruta)
+
+      if (this.rutaActiva !== ruta) {
+        this.abiertos = quedan
+        return
+      }
+
+      const vecina = quedan[donde] || quedan[donde - 1] || null
+      this.abiertos = quedan
+
+      if (vecina) {
+        await this.abrir(vecina)
+      } else {
+        // Sin pestañas no hay nada que editar. Se guarda lo que hubiera antes
+        // de soltar el borrador, que si no se pierde lo último escrito.
+        await this.guardarYa()
+        this.$patch({ rutaActiva: null, rutaDelBorrador: null, borrador: '' })
+      }
+    },
+
     async borrar(ruta) {
       await sfv.borrar(this.proyecto, ruta)
       await this.refrescarLista()
+
+      // Un fichero que ya no existe no puede seguir teniendo pestaña.
+      this.abiertos = this.abiertos.filter((otra) => otra !== ruta)
 
       if (this.rutaActiva === ruta) {
         this.rutaActiva = null
@@ -163,7 +202,12 @@ export const usarTaller = defineStore('taller', {
       try {
         await sfv.renombrar(this.proyecto, desde, hasta)
         await this.refrescarLista()
-        if (this.rutaActiva === desde) await this.abrir(sfv.normalizarRuta(hasta))
+
+        // La pestaña se queda donde estaba, pero con el nombre nuevo.
+        const nueva = sfv.normalizarRuta(hasta)
+        this.abiertos = this.abiertos.map((otra) => (otra === desde ? nueva : otra))
+
+        if (this.rutaActiva === desde) await this.abrir(nueva)
         this.revision += 1
         this.agendarSubida()
       } catch (fallo) {

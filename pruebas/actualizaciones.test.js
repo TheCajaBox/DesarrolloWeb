@@ -88,3 +88,28 @@ describe('lo que ve ella', () => {
     expect(tarjeta).toMatch(/:disabled="instalando"/)
   })
 })
+
+describe('una sola copia abierta', () => {
+  // Esto no es teoría. Al actualizar, alguien abrió la aplicación mientras el
+  // instalador silencioso cambiaba los ficheros: arrancó la copia vieja, el
+  // instalador se la llevó por delante, y pareció que se cerraba sola.
+  //
+  // Con los puertos fijos, dos copias no pueden convivir de ninguna manera.
+  it('la segunda copia no arranca: se lo dice a la primera', () => {
+    expect(main).toMatch(/requestSingleInstanceLock\(\)/)
+    expect(main).toMatch(/app\.on\(\s*'second-instance'/)
+  })
+
+  it('y la primera sale al frente en vez de quedarse escondida', () => {
+    const aviso = main.slice(
+      main.indexOf("app.on('second-instance'"),
+      main.indexOf("app.on('second-instance'") + 400,
+    )
+    expect(aviso).toMatch(/focus\(\)/)
+    expect(aviso).toMatch(/restore\(\)/)
+  })
+
+  it('los puertos siguen siendo fijos, que es lo que obliga a todo esto', () => {
+    expect(main).toMatch(/strictPort:\s*true/)
+  })
+})

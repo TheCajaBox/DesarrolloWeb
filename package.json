@@ -1,6 +1,6 @@
 {
   "name": "el-sombrero-de-wayne",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "private": true,
   "type": "module",
   "description": "Taller para aprender a construir una web desde 0, con Wayne y Wax de guias",
@@ -24,7 +24,7 @@
     "build:escritorio": "vite build --config vite.escritorio.js",
     "instalador": "electron-builder --win nsis",
     "publicar": "electron-builder --win nsis --publish always",
-    "humo": "node herramientas/prueba-de-humo.mjs"
+    "humo": "node herramientas/prueba-de-humo.mjs && node herramientas/mirar-la-app.mjs"
   },
   "dependencies": {
     "@codemirror/lang-css": "^6.3.1",
@@ -71,8 +71,8 @@
       "paginas/escritorio/**/*",
       "vite.escritorio.js",
       "package.json",
-      "!taller-escritorio/proyecto-alumna/node_modules",
-      "!taller-escritorio/proyecto-alumna/dist",
+      "!taller-escritorio/mi-web/node_modules",
+      "!taller-escritorio/mi-web/dist",
       "!**/*.map"
     ],
     "win": {

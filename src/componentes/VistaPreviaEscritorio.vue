@@ -6,6 +6,9 @@
 // En el navegador (donde verifico la interfaz) no hay webview ni Vite del
 // alumno, así que se muestra un aviso en su lugar.
 import { onMounted, ref } from 'vue'
+import { usarDiagnostico } from '../almacen/diagnostico.js'
+
+const diagnostico = usarDiagnostico()
 
 // eslint-disable-next-line no-undef
 const enElectron = typeof window !== 'undefined' && window.taller?.esEscritorio === true
@@ -15,7 +18,33 @@ const marco = ref(null)
 
 onMounted(async () => {
   if (window.taller?.urlVista) url.value = (await window.taller.urlVista()) || ''
+  escucharLaConsola()
 })
+
+/**
+ * Lo que diga la página de la alumna, al panel de consola.
+ *
+ * El webview vive en otro proceso y no comparte consola con el taller, así que
+ * sus mensajes se pierden salvo que se recojan aquí. El nivel llega como
+ * número en unas versiones de Electron y como texto en otras; de traducirlo se
+ * encarga el almacén.
+ */
+function escucharLaConsola() {
+  const vista = marco.value
+  if (!vista?.addEventListener) return
+
+  vista.addEventListener('console-message', (evento) => {
+    diagnostico.apuntarMensaje({
+      nivel: evento.level,
+      texto: evento.message,
+      fichero: evento.sourceId || '',
+      linea: evento.line || null,
+    })
+  })
+
+  // Al recargar la página, lo de antes ya no viene a cuento.
+  vista.addEventListener('did-start-loading', () => diagnostico.limpiarConsola())
+}
 
 function recargar() {
   if (marco.value?.reload) marco.value.reload()

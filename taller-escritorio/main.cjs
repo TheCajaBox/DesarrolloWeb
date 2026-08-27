@@ -15,16 +15,22 @@ const fs = require('node:fs/promises')
 const fsSinc = require('node:fs')
 const { pideInternet, avisoDeInternet } = require('./politica-terminal.cjs')
 const { repararProyecto } = require('./reparar-proyecto.cjs')
+const { escucharProblemas } = require('./problemas.cjs')
 
 const RAIZ = path.join(__dirname, '..')
-const PLANTILLA = path.join(__dirname, 'proyecto-alumna')
+const PLANTILLA = path.join(__dirname, 'mi-web')
 
 // En desarrollo, el proyecto de la alumna vive en el repo. Empaquetada la app,
 // el repo es de solo lectura, así que el proyecto se muda a la carpeta de
 // datos de usuario y se siembra desde la plantilla en el primer arranque.
 const PROYECTO = app.isPackaged
-  ? path.join(app.getPath('userData'), 'proyecto-alumna')
+  ? path.join(app.getPath('userData'), 'mi-web')
   : PLANTILLA
+
+// La carpeta se llamaba «proyecto-alumna», que sale por pantalla cada vez que
+// se exporta la web o se mira algo en la terminal, y no es nombre para lo que
+// alguien está construyendo. Ahora se llama «mi-web».
+const NOMBRE_VIEJO = app.isPackaged ? path.join(app.getPath('userData'), 'proyecto-alumna') : null
 
 // El enlace a los módulos (vue, vue-router, pinia) que usa el proyecto de la
 // alumna. Se comprueba EN CADA ARRANQUE, no solo al sembrar: si el enlace
@@ -73,7 +79,33 @@ function asegurarModulos() {
   }
 }
 
+/**
+ * La mudanza del nombre viejo al nuevo.
+ *
+ * Se renombra la carpeta entera, con su trabajo dentro: nada se copia ni se
+ * pierde. Si por lo que sea no se puede (está en uso, permisos), se sigue con
+ * la vieja en vez de dejar a nadie sin proyecto por un nombre.
+ */
+function mudarSiHaceFalta() {
+  if (!NOMBRE_VIEJO) return
+  if (!fsSinc.existsSync(NOMBRE_VIEJO)) return
+
+  if (fsSinc.existsSync(PROYECTO)) {
+    // Las dos a la vez: raro, pero la nueva manda y la vieja no se toca.
+    apuntar('mudanza: ya existe mi-web, se deja proyecto-alumna donde está')
+    return
+  }
+
+  try {
+    fsSinc.renameSync(NOMBRE_VIEJO, PROYECTO)
+    apuntar(`mudanza: proyecto-alumna renombrada a mi-web`)
+  } catch (fallo) {
+    apuntar(`mudanza: no se ha podido renombrar (${fallo.message})`)
+  }
+}
+
 function prepararProyecto() {
+  mudarSiHaceFalta()
   if (!app.isPackaged) return
 
   if (fsSinc.existsSync(path.join(PROYECTO, 'index.html'))) {
@@ -115,6 +147,16 @@ let viteInterfaz = null
 let urlVistaAlumna = ''
 let urlInterfaz = ''
 
+// El problema de compilación de ahora mismo, o null si todo compila. Lo
+// mantiene al día el enganche de problemas.cjs.
+let problemaActual = null
+
+function avisarDelProblema() {
+  for (const abierta of BrowserWindow.getAllWindows()) {
+    if (!abierta.isDestroyed()) abierta.webContents.send('taller:problema', problemaActual)
+  }
+}
+
 async function arrancarVites() {
   // El directorio de trabajo de una app instalada lo pone Windows, y puede ser
   // cualquiera. Cualquier ruta relativa (de aquí o de una configuración de
@@ -136,6 +178,13 @@ async function arrancarVites() {
     logLevel: 'warn',
     plugins: [vue()],
     server: { host: '127.0.0.1', port: 5199, strictPort: true },
+  })
+  escucharProblemas(viteAlumna, {
+    carpeta: PROYECTO,
+    alCambiar: (problema) => {
+      problemaActual = problema
+      avisarDelProblema()
+    },
   })
   await viteAlumna.listen()
   urlVistaAlumna = `http://127.0.0.1:${viteAlumna.config.server.port}/`
@@ -474,11 +523,40 @@ function rutaSegura(ruta) {
   return absoluta
 }
 
-app.whenReady().then(async () => {
+// Una sola copia abierta, y punto.
+//
+// Los dos servidores usan puerto fijo (strictPort), así que una segunda copia
+// no podría arrancarlos y se quedaría a medias. Pasó de verdad: al actualizar,
+// alguien abrió la aplicación mientras el instalador silencioso todavía estaba
+// cambiando los ficheros por debajo; arrancó la copia vieja, el instalador se
+// la llevó por delante y pareció que la aplicación se cerraba sola.
+//
+// Ahora la segunda copia no arranca: se lo dice a la primera, que sale al
+// frente. Es lo que hace cualquier aplicación de escritorio, y aquí además
+// evita ese enredo entero.
+let ventanaPrincipal = null
+
+if (!app.requestSingleInstanceLock()) {
+  app.quit()
+} else {
+  app.on('second-instance', () => {
+    if (!ventanaPrincipal || ventanaPrincipal.isDestroyed()) return
+    if (ventanaPrincipal.isMinimized()) ventanaPrincipal.restore()
+    ventanaPrincipal.show()
+    ventanaPrincipal.focus()
+  })
+
+  arrancar()
+}
+
+async function arrancar() {
+  await app.whenReady()
+
   // La ventana se abre PRIMERO, con un aviso de que está arrancando. Así, si
   // algo falla, hay dónde contarlo (y si tarda, se ve que está trabajando).
   ponerMenu()
   const ventana = crearVentana({ enBlanco: true })
+  ventanaPrincipal = ventana
   ventana.loadURL(
     'data:text/html;charset=utf-8,' +
       encodeURIComponent(
@@ -556,6 +634,10 @@ app.whenReady().then(async () => {
   // Para el aviso de novedades: la interfaz compara esta con la última que vio.
   ipcMain.handle('taller:version', () => app.getVersion())
 
+  // El problema que haya ahora mismo, para cuando la interfaz se recarga en
+  // medio: si no, el panel aparecería vacío con el error todavía vivo.
+  ipcMain.handle('taller:problema', () => problemaActual)
+
   // Instalar la actualización descargada: cierra, instala y vuelve a abrir.
   // Devuelve si de verdad había algo que instalar, para que la interfaz no se
   // quede esperando un reinicio que no va a llegar.
@@ -626,9 +708,9 @@ app.whenReady().then(async () => {
   // La ventana ya está abierta desde el principio de este bloque, con la
   // interfaz cargada: aquí no se crea otra.
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) crearVentana()
+    if (BrowserWindow.getAllWindows().length === 0) ventanaPrincipal = crearVentana()
   })
-})
+}
 
 app.on('window-all-closed', async () => {
   if (viteAlumna) await viteAlumna.close().catch(() => {})

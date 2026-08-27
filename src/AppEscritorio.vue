@@ -16,6 +16,7 @@ import { usarTaller } from './almacen/taller.js'
 import { usarCurso } from './almacen/curso.js'
 import { usarWayne } from './almacen/wayne.js'
 import { usarColeccion } from './almacen/coleccion.js'
+import { usarDiagnostico } from './almacen/diagnostico.js'
 import { usarSql } from './almacen/sql.js'
 import mundos from './contenido/vue/indice.js'
 import {
@@ -26,7 +27,9 @@ import {
 import ArbolFicheros from './componentes/ArbolFicheros.vue'
 import Armonia from './componentes/Armonia.vue'
 import AvisoActualizacion from './componentes/AvisoActualizacion.vue'
+import ConsolaNavegador from './componentes/ConsolaNavegador.vue'
 import ConsolaSql from './componentes/ConsolaSql.vue'
+import Problemas from './componentes/Problemas.vue'
 import VisorEsquema from './componentes/VisorEsquema.vue'
 import Dialogo from './componentes/Dialogo.vue'
 import Editor from './componentes/Editor.vue'
@@ -47,6 +50,7 @@ const taller = usarTaller()
 const curso = usarCurso()
 const sql = usarSql()
 const coleccion = usarColeccion()
+const diagnostico = usarDiagnostico()
 
 // Los componentes reutilizados (Mapa, PanelMundo) piden el almacén por
 // inyección. Se lo damos aquí: el de escritorio.
@@ -173,23 +177,40 @@ const callarASteris = () => (steris.value = { termino: null, error: null })
 // Vive debajo del editor, como en cualquier editor de código. El alto se
 // arrastra y se recuerda; cerrarla no mata lo que esté corriendo.
 const CLAVE_TERMINAL = 'sombrero-terminal'
-const terminalAbierta = ref(false)
+// Qué se ve en el panel de abajo: 'terminal', 'problemas', 'consola' o nada.
+// Antes solo estaba la terminal, y se guardaba un booleano; se sigue leyendo
+// para no perderle a nadie el panel abierto al actualizar.
+const panelAbajo = ref(null)
+
 const terminalOcupada = ref(false)
 const altoTerminal = ref(260)
 
+// La terminal se esconde con v-show y no con v-if: cerrar el panel no debe
+// matar el comando que esté corriendo ni perder lo que ya salió por pantalla.
+// Por eso se pregunta si ALGUNA VEZ se abrió, para no montarla de balde.
+const terminalUsada = ref(false)
+const terminalAbierta = computed(() => panelAbajo.value === 'terminal')
+
+function abrirAbajo(cual) {
+  panelAbajo.value = panelAbajo.value === cual ? null : cual
+  if (panelAbajo.value === 'terminal') terminalUsada.value = true
+}
+
 try {
   const guardado = JSON.parse(localStorage.getItem(CLAVE_TERMINAL) || '{}')
-  terminalAbierta.value = Boolean(guardado.abierta)
+  // 'abierta' es de la versión en que abajo solo había terminal.
+  panelAbajo.value = guardado.panel || (guardado.abierta ? 'terminal' : null)
+  if (panelAbajo.value === 'terminal') terminalUsada.value = true
   altoTerminal.value = Number(guardado.alto) || 260
 } catch {
   /* valores por defecto */
 }
 
-watch([terminalAbierta, altoTerminal], () => {
+watch([panelAbajo, altoTerminal], () => {
   try {
     localStorage.setItem(
       CLAVE_TERMINAL,
-      JSON.stringify({ abierta: terminalAbierta.value, alto: altoTerminal.value }),
+      JSON.stringify({ panel: panelAbajo.value, alto: altoTerminal.value }),
     )
   } catch {
     /* sin persistencia; vale para esta sesión */
@@ -262,12 +283,31 @@ async function sembrarMundo() {
 //
 // Las reglas viven en motor/escondites.js. Aquí solo se llama.
 let dejarDeEscucharSucesos = null
+let dejarDeEscucharProblemas = null
 
 function revisarElCodigo(codigo) {
   if (!codigo) return
   for (const id of sombrerosEnElCodigo(codigo, { mundoActual: curso.numero })) {
     coleccion.encontrar(id)
   }
+}
+
+/**
+ * Abre en el editor el fichero que ha dado el problema.
+ *
+ * Vite da la ruta del proyecto entero; aquí solo se puede abrir lo que está en
+ * la lista de ficheros de la alumna, así que si no cuadra no se hace nada en
+ * vez de abrir un fichero vacío que no es.
+ */
+function abrirDesdeElProblema(ruta) {
+  if (!ruta) return
+  const suyo = taller.ficheros.find((fichero) => fichero.ruta === ruta)
+  if (suyo) taller.abrir(suyo.ruta)
+}
+
+/** El nombre del fichero sin la carpeta: en una pestaña no cabe la ruta. */
+function soloElNombre(ruta) {
+  return String(ruta || '').split('/').pop()
 }
 
 function verLaSombrerera() {
@@ -355,6 +395,7 @@ onMounted(() => {
 onBeforeUnmount(() => {
   if (dejarDeEscucharActualizaciones) dejarDeEscucharActualizaciones()
   if (dejarDeEscucharSucesos) dejarDeEscucharSucesos()
+  if (dejarDeEscucharProblemas) dejarDeEscucharProblemas()
 })
 
 // Todos los mundos abiertos (para revisar el temario) o de uno en uno.
@@ -417,6 +458,17 @@ onMounted(async () => {
 
   // Y lo que ya hubiera escrito de antes en el fichero abierto.
   revisarElCodigo(taller.borrador)
+
+  // Los problemas de compilación. Se pide el que haya ahora por si la interfaz
+  // se ha recargado con un error ya vivo, y luego se escucha.
+  if (window.taller?.problema) {
+    diagnostico.ponerProblema(await window.taller.problema())
+  }
+  if (window.taller?.alHaberProblema) {
+    dejarDeEscucharProblemas = window.taller.alHaberProblema((problema) => {
+      diagnostico.ponerProblema(problema)
+    })
+  }
 
   if (window.taller?.alSuceder) {
     dejarDeEscucharSucesos = window.taller.alSuceder((que) => {
@@ -668,15 +720,56 @@ async function borrar(ruta) {
 
       <section class="centro">
         <div class="tira">
-          <span>{{ taller.rutaActiva || 'sin fichero' }}</span>
-          <button
-            class="mini"
-            :class="{ activa: terminalAbierta }"
-            :title="terminalAbierta ? 'Cerrar la terminal' : 'Abrir la terminal (npm, node, git)'"
-            @click="terminalAbierta = !terminalAbierta"
-          >
-            Terminal{{ terminalOcupada ? ' ·' : '' }}
-          </button>
+          <!-- Las pestañas de los ficheros abiertos, como en cualquier editor.
+               Cerrar una pestaña no borra nada: solo la quita de aquí. -->
+          <div class="fichas" role="tablist">
+            <button
+              v-for="ruta in taller.abiertos"
+              :key="ruta"
+              class="ficha"
+              :class="{ activa: ruta === taller.rutaActiva }"
+              role="tab"
+              :aria-selected="ruta === taller.rutaActiva"
+              :title="ruta"
+              @click="taller.abrir(ruta)"
+              @auxclick.middle.prevent="taller.cerrarPestana(ruta)"
+            >
+              <span class="nombre">{{ soloElNombre(ruta) }}</span>
+              <span
+                class="cerrar-ficha"
+                title="Cerrar (también con el botón del medio)"
+                @click.stop="taller.cerrarPestana(ruta)"
+                >×</span
+              >
+            </button>
+            <span v-if="!taller.abiertos.length" class="sin-fichas">sin ficheros abiertos</span>
+          </div>
+          <div class="botones-abajo">
+            <button
+              class="mini"
+              :class="{ activa: panelAbajo === 'terminal' }"
+              title="La terminal: npm, node, git sobre tu proyecto"
+              @click="abrirAbajo('terminal')"
+            >
+              Terminal{{ terminalOcupada ? ' ·' : '' }}
+            </button>
+            <button
+              class="mini"
+              :class="{ activa: panelAbajo === 'problemas', avisa: diagnostico.hayProblema }"
+              title="Lo que no compila"
+              @click="abrirAbajo('problemas')"
+            >
+              Problemas<span v-if="diagnostico.hayProblema" class="chincheta">1</span>
+            </button>
+            <button
+              class="mini"
+              :class="{ activa: panelAbajo === 'consola', avisa: diagnostico.errores > 0 }"
+              title="Lo que dice tu página: console.log y errores en marcha"
+              @click="abrirAbajo('consola')"
+            >
+              Consola<span v-if="diagnostico.errores" class="chincheta">{{ diagnostico.errores }}</span>
+            </button>
+          </div>
         </div>
         <Editor
           :contenido="taller.borrador"
@@ -685,17 +778,25 @@ async function borrar(ruta) {
           @escribir="(contenido, ruta) => taller.escribir(contenido, ruta)"
         />
 
-        <!-- La terminal, debajo del editor y con su manilla, como en VS Code.
-             Se esconde con v-show y no con v-if: cerrarla no debe matar el
-             comando que esté corriendo ni perder lo que ya salió. -->
+        <!-- El panel de abajo, con su manilla, como en cualquier editor:
+             terminal, problemas y consola de la vista previa.
+
+             La terminal se esconde con v-show y no con v-if porque cerrar el
+             panel no debe matar el comando que esté corriendo ni perder lo que
+             ya salió por pantalla. Los otros dos leen del almacén, así que se
+             pueden montar y desmontar sin perder nada. -->
         <div
-          v-show="terminalAbierta"
+          v-show="panelAbajo"
           class="manilla horizontal"
-          title="Arrastra para cambiar el alto de la terminal"
+          title="Arrastra para cambiar el alto del panel"
           @pointerdown="arrastrarAlto($event)"
         ></div>
-        <div v-show="terminalAbierta" class="hueco-terminal" :style="{ height: `${altoTerminal}px` }">
-          <TerminalIntegrada @ejecutando="terminalOcupada = $event" />
+        <div v-show="panelAbajo" class="hueco-terminal" :style="{ height: `${altoTerminal}px` }">
+          <div v-show="panelAbajo === 'terminal'" class="lleno">
+            <TerminalIntegrada v-if="terminalUsada" @ejecutando="terminalOcupada = $event" />
+          </div>
+          <Problemas v-if="panelAbajo === 'problemas'" @abrir="abrirDesdeElProblema" />
+          <ConsolaNavegador v-if="panelAbajo === 'consola'" />
         </div>
       </section>
 
@@ -945,6 +1046,17 @@ async function borrar(ruta) {
   inset: -4px 0;
 }
 
+.botones-abajo {
+  display: flex;
+  gap: 0.3rem;
+  flex: none;
+}
+
+/* Un panel con algo que contar se nota sin gritar. */
+.mini.avisa {
+  color: var(--rojo, #d98b7a);
+}
+
 .hueco-terminal {
   flex: none;
   min-height: 0;
@@ -1036,6 +1148,75 @@ async function borrar(ruta) {
   min-width: 0;
   min-height: 0;
 }
+/* Las pestañas de ficheros. Se encogen antes de desbordar, y si hay muchas la
+   tira scrollea en horizontal en vez de romper la fila. */
+.fichas {
+  display: flex;
+  align-items: stretch;
+  gap: 0.15rem;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.ficha {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 13rem;
+  padding: 0.25rem 0.5rem;
+  border: none;
+  border-radius: 0.35rem 0.35rem 0 0;
+  background: none;
+  font-family: var(--mono);
+  font-size: 0.74rem;
+  color: var(--texto-apagado);
+  white-space: nowrap;
+}
+
+.ficha:hover {
+  color: var(--texto-tenue);
+  background: rgb(255 255 255 / 0.04);
+}
+
+.ficha.activa {
+  color: var(--acento);
+  background: color-mix(in srgb, var(--acento) 12%, transparent);
+  box-shadow: inset 0 -2px 0 var(--acento);
+}
+
+.ficha .nombre {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cerrar-ficha {
+  flex: none;
+  width: 1rem;
+  text-align: center;
+  border-radius: 0.25rem;
+  opacity: 0.45;
+  font-size: 0.9rem;
+  line-height: 1;
+}
+
+.ficha:hover .cerrar-ficha,
+.ficha.activa .cerrar-ficha {
+  opacity: 0.85;
+}
+
+.cerrar-ficha:hover {
+  opacity: 1;
+  background: rgb(255 255 255 / 0.12);
+}
+
+.sin-fichas {
+  padding: 0.25rem 0.2rem;
+  opacity: 0.6;
+}
+
 .tira {
   padding: 0.35rem 0.8rem;
   border-bottom: 1px solid var(--borde-suave);

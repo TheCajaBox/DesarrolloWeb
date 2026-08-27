@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url'
 import { createServer } from 'vite'
 import vue from '@vitejs/plugin-vue'
 
-const PROYECTO = fileURLToPath(new URL('./proyecto-alumna', import.meta.url))
+const PROYECTO = fileURLToPath(new URL('./mi-web', import.meta.url))
 
 const servidor = await createServer({
   root: PROYECTO,

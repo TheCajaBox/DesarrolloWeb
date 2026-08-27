@@ -9,6 +9,20 @@
 
 const novedades = [
   {
+    version: '0.1.7',
+    titulo: 'Pestañas, problemas y consola: el taller se parece más a un editor de verdad',
+    puntos: [
+      'Los ficheros que abres se quedan en pestañas encima del editor. Se cambia de una a otra con un clic y se cierran con la × (o con el botón del medio del ratón). Cerrar una pestaña no borra nada.',
+      'Debajo del editor, donde estaba la terminal, ahora hay tres: «Terminal», «Problemas» y «Consola».',
+      '«Problemas» te dice qué no compila, en qué fichero y en qué línea, y el nombre del fichero es un enlace que lo abre. Antes solo salía ese cartel rojo tapando la vista previa, que se iba solo y no dejaba rastro.',
+      '«Consola» es la del navegador de tu página: ahí sale lo que digas con console.log y los errores que le pasen mientras funciona, sin abrir las herramientas de desarrollo.',
+      'Tu carpeta ya no se llama «proyecto-alumna». Ahora es «mi-web», que es lo que es. Tu trabajo se muda solo, entero y sin tocar nada.',
+      'Y si abres el taller dos veces, la segunda ya no arranca a medias: sale al frente la que ya tenías.',
+    ],
+    wayne:
+      'Le hemos puesto pestañas, un panel que te chiva lo que está roto y otro que te cuenta lo que dice tu página cuando cree que no la escucha. Ah, y he cambiado el cartel de tu carpeta: ponía «proyecto-alumna», que suena a que esto es de mentira. No lo es.',
+  },
+  {
     version: '0.1.6',
     titulo: 'Hay sombreros escondidos por el taller',
     puntos: [

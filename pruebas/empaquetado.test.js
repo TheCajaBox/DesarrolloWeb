@@ -71,7 +71,7 @@ describe('un fallo de arranque nunca deja la ventana en negro', () => {
 // instalada arrancaba y el mundo 1 estaba roto desde el primer segundo. Nadie
 // mira el contenido de los ficheros de una plantilla… hasta que pasa.
 describe('la plantilla del proyecto de la alumna es válida', () => {
-  const leer = (ruta) => readFileSync(`taller-escritorio/proyecto-alumna/${ruta}`, 'utf8')
+  const leer = (ruta) => readFileSync(`taller-escritorio/mi-web/${ruta}`, 'utf8')
 
   it('App.vue es un componente de verdad, no otra cosa', () => {
     const app = leer('src/App.vue')

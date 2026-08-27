@@ -13,7 +13,16 @@
 // Si algo falla, sale con código 1 y no hay instalador que enviar.
 
 import { spawn, spawnSync } from 'node:child_process'
-import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync } from 'node:fs'
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs'
 import net from 'node:net'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
@@ -149,7 +158,7 @@ try {
   )
 
   // 5. El proyecto sembrado es válido (la plantilla corrupta que empaqueté).
-  const app = path.join(datos, 'proyecto-alumna', 'src', 'App.vue')
+  const app = path.join(datos, 'mi-web', 'src', 'App.vue')
   const hayApp = existsSync(app)
   comprobar('el proyecto se siembra en los datos de usuario', hayApp, app)
 
@@ -217,17 +226,23 @@ try {
 console.log('\nSegunda ronda: proyecto viejo, enlace roto y fichero corrupto\n')
 
 const datosViejos = mkdtempSync(path.join(tmpdir(), 'humo-viejo-'))
-const proyectoViejo = path.join(datosViejos, 'proyecto-alumna')
-const plantilla = 'taller-escritorio/proyecto-alumna'
+// Con el NOMBRE ANTIGUO: es lo que hay en el disco de quien ya usaba el taller
+// antes de que la carpeta se llamara mi-web. La mudanza tiene que llevarse su
+// trabajo entero, no dejarlo atras.
+const carpetaAntigua = path.join(datosViejos, 'proyecto-alumna')
+const proyectoViejo = path.join(datosViejos, 'mi-web')
+const plantilla = 'taller-escritorio/mi-web'
 
-mkdirSync(path.join(proyectoViejo, 'src'), { recursive: true })
-copyFileSync(path.join(plantilla, 'index.html'), path.join(proyectoViejo, 'index.html'))
-copyFileSync(path.join(plantilla, 'src/main.js'), path.join(proyectoViejo, 'src/main.js'))
+mkdirSync(path.join(carpetaAntigua, 'src'), { recursive: true })
+copyFileSync(path.join(plantilla, 'index.html'), path.join(carpetaAntigua, 'index.html'))
+copyFileSync(path.join(plantilla, 'src/main.js'), path.join(carpetaAntigua, 'src/main.js'))
 // El App.vue con el index.html dentro: el fallo que sufrió alguien de verdad.
-copyFileSync(path.join(plantilla, 'index.html'), path.join(proyectoViejo, 'src/App.vue'))
+copyFileSync(path.join(plantilla, 'index.html'), path.join(carpetaAntigua, 'src/App.vue'))
+// Algo suyo, para comprobar que la mudanza no se deja nada por el camino.
+writeFileSync(path.join(carpetaAntigua, 'src/lo-suyo.css'), 'body { color: rebeccapurple }', 'utf8')
 // Y un enlace de módulos que apunta a donde ya no hay nada.
 try {
-  symlinkSync(path.join(datosViejos, 'no-existe'), path.join(proyectoViejo, 'node_modules'), 'junction')
+  symlinkSync(path.join(datosViejos, 'no-existe'), path.join(carpetaAntigua, 'node_modules'), 'junction')
 } catch {
   /* si no se puede crear el enlace roto, la comprobación de abajo lo dirá */
 }
@@ -240,6 +255,13 @@ const viejo = spawn(path.resolve(APP), [`--user-data-dir=${datosViejos}`], {
 try {
   const previa = await pedir(PROYECTO, 30)
   comprobar('con un proyecto viejo, la vista previa arranca', previa.estado === 200)
+
+  comprobar('la carpeta se ha mudado al nombre nuevo', existsSync(proyectoViejo), proyectoViejo)
+  comprobar('y la del nombre viejo ya no esta', !existsSync(carpetaAntigua))
+  comprobar(
+    'la mudanza se ha traido su trabajo, no solo la plantilla',
+    existsSync(path.join(proyectoViejo, 'src/lo-suyo.css')),
+  )
 
   const appVue = readFileSync(path.join(proyectoViejo, 'src/App.vue'), 'utf8')
   comprobar('el App.vue corrupto se ha reparado', /<template>/.test(appVue))

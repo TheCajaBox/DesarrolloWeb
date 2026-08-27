@@ -24,6 +24,18 @@ contextBridge.exposeInMainWorld('taller', {
   // La versión que corre ahora mismo (para el aviso de novedades).
   version: () => ipcRenderer.invoke('taller:version'),
 
+  // El problema de compilación que haya ahora, para cuando la interfaz se
+  // recarga con un error ya vivo.
+  problema: () => ipcRenderer.invoke('taller:problema'),
+
+  // Los problemas de compilación según pasan. Llega null cuando ya compila.
+  // Devuelve la función para darse de baja.
+  alHaberProblema: (escuchar) => {
+    const oyente = (_evento, problema) => escuchar(problema)
+    ipcRenderer.on('taller:problema', oyente)
+    return () => ipcRenderer.removeListener('taller:problema', oyente)
+  },
+
   // Cerrar, instalar la versión descargada y volver a abrir. Lo pide ella con
   // un botón: la app no se cierra sola. Devuelve { ok } según si había algo.
   instalarActualizacion: () => ipcRenderer.invoke('taller:instalar-actualizacion'),

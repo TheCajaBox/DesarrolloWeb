@@ -17,6 +17,7 @@ import { usarCurso } from './almacen/curso.js'
 import { usarWayne } from './almacen/wayne.js'
 import { usarSql } from './almacen/sql.js'
 import mundos from './contenido/vue/indice.js'
+import { novedadesDeLaVersion, novedadesDesde } from './contenido/novedades.js'
 import ArbolFicheros from './componentes/ArbolFicheros.vue'
 import Armonia from './componentes/Armonia.vue'
 import ConsolaSql from './componentes/ConsolaSql.vue'
@@ -25,6 +26,7 @@ import Dialogo from './componentes/Dialogo.vue'
 import Editor from './componentes/Editor.vue'
 import Glosario from './componentes/Glosario.vue'
 import Mapa from './componentes/Mapa.vue'
+import Novedades from './componentes/Novedades.vue'
 import PanelMundo from './componentes/PanelMundo.vue'
 import Steris from './componentes/Steris.vue'
 import TerminalIntegrada from './componentes/Terminal.vue'
@@ -236,6 +238,64 @@ async function sembrarMundo() {
   if (salida.value !== 'vista') salida.value = 'vista'
 }
 
+// ---- El aviso de «novedades de la versión» ----
+//
+// Cuando la app se actualiza sola, lo suyo es contar qué ha cambiado. Se
+// compara la versión que corre con la última que se vio y solo se enseña lo
+// que haya pasado entre medias. En una instalación nueva no sale nada: quien
+// acaba de instalar no tiene novedades, tiene un taller por delante.
+const CLAVE_VERSION_VISTA = 'sombrero-version-vista'
+
+const versionActual = ref('')
+const novedades = ref([])
+
+function apuntarVersionVista(version) {
+  try {
+    localStorage.setItem(CLAVE_VERSION_VISTA, version)
+  } catch {
+    /* sin localStorage el aviso saldrá otra vez, y no pasa nada */
+  }
+}
+
+function cerrarNovedades() {
+  novedades.value = []
+  if (versionActual.value) apuntarVersionVista(versionActual.value)
+}
+
+async function mirarNovedades() {
+  if (!window.taller?.version) return
+
+  const version = await window.taller.version()
+  if (!version) return
+  versionActual.value = version
+
+  let vista = null
+  try {
+    vista = localStorage.getItem(CLAVE_VERSION_VISTA)
+  } catch {
+    return
+  }
+
+  // Sin clave guardada hay dos casos muy distintos: acabar de instalar (no
+  // hay novedades, hay taller) o venir de una versión anterior al aviso. Se
+  // distinguen por el progreso: si ya había trabajado aquí, se le cuenta lo
+  // que trae la versión que le acaba de llegar.
+  const yaUsabaElTaller = () => {
+    try {
+      return localStorage.getItem('sombrero-progreso-vue') !== null
+    } catch {
+      return false
+    }
+  }
+
+  let hay = []
+  if (vista) hay = novedadesDesde(vista, version)
+  else if (yaUsabaElTaller()) hay = novedadesDeLaVersion(version)
+  if (hay.length) novedades.value = hay
+  // Sin nada que contar (primera instalación, o ya vista) se apunta y punto.
+  else apuntarVersionVista(version)
+}
+
 // Las actualizaciones se avisan por boca de Wayne y no con una ventana a mitad
 // de una lección. La versión nueva se instala al cerrar la aplicación.
 let dejarDeEscucharActualizaciones = null
@@ -306,6 +366,7 @@ onMounted(async () => {
   else wayne.alEntrar()
 
   reiniciarInactividad()
+  mirarNovedades()
 })
 
 // Reacciona a cada comprobación: acierto o fallo, y recuerda.
@@ -596,6 +657,12 @@ async function borrar(ruta) {
       </section>
     </main>
 
+    <Novedades
+      v-if="novedades.length"
+      :entradas="novedades"
+      :version="versionActual"
+      @cerrar="cerrarNovedades"
+    />
     <WayneCompanero :texto="wayne.linea" />
     <Steris :termino="steris.termino" :error="steris.error" @cerrar="callarASteris" />
     <Dialogo />

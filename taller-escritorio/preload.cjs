@@ -21,6 +21,9 @@ contextBridge.exposeInMainWorld('taller', {
   // abre la carpeta. Devuelve { ok, ruta } o { ok: false, error }.
   exportar: () => ipcRenderer.invoke('taller:exportar'),
 
+  // La versión que corre ahora mismo (para el aviso de novedades).
+  version: () => ipcRenderer.invoke('taller:version'),
+
   // Avisos de actualización: 'bajando' mientras se descarga, 'lista' cuando
   // se aplicará al cerrar. Devuelve la función para darse de baja.
   alActualizar: (escuchar) => {

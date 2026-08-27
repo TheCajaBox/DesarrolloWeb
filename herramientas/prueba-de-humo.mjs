@@ -185,7 +185,16 @@ try {
 
   const appVue = readFileSync(path.join(proyectoViejo, 'src/App.vue'), 'utf8')
   comprobar('el App.vue corrupto se ha reparado', /<template>/.test(appVue))
-  comprobar('lo corrupto se guardó al lado', existsSync(path.join(proyectoViejo, 'src/App.vue.roto')))
+  // La copia va a .reparados/, fuera de la vista: un fichero raro en medio de
+  // sus ficheros es ruido para quien está aprendiendo.
+  comprobar(
+    'lo corrupto se guardó aparte, en .reparados',
+    existsSync(path.join(proyectoViejo, '.reparados', 'src-App.vue')),
+  )
+  comprobar(
+    'y no se quedó a la vista en su carpeta',
+    !existsSync(path.join(proyectoViejo, 'src/App.vue.roto')),
+  )
 
   comprobar(
     'el enlace a los módulos se ha rehecho',

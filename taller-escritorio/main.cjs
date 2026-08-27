@@ -526,6 +526,9 @@ app.whenReady().then(async () => {
 
   ipcMain.handle('taller:url-vista', () => urlVistaAlumna)
 
+  // Para el aviso de novedades: la interfaz compara esta con la última que vio.
+  ipcMain.handle('taller:version', () => app.getVersion())
+
   // ---- Terminal ----
   ipcMain.handle('terminal:ejecutar', (evento, comando) => {
     const suya = BrowserWindow.fromWebContents(evento.sender)

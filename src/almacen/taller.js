@@ -20,6 +20,9 @@ export const usarTaller = defineStore('taller', {
     ficheros: [],
     rutaActiva: null,
     borrador: '',
+    // De qué fichero es el borrador. Si no cuadra con rutaActiva, no se guarda:
+    // ver el comentario de abrir().
+    rutaDelBorrador: null,
     guardando: false,
     error: null,
     // Estado de la copia en la nube: 'sin-probar', 'guardando', 'guardado',
@@ -62,14 +65,37 @@ export const usarTaller = defineStore('taller', {
     async abrir(ruta) {
       // Lo que haya sin guardar se guarda antes de cambiar de fichero.
       await this.guardarYa()
-      this.rutaActiva = ruta
-      this.borrador = (await sfv.leer(this.proyecto, ruta)) ?? ''
-      this.error = null
+
+      // El contenido se lee ANTES de mover rutaActiva, y las dos asignaciones
+      // van seguidas sin ningún await en medio.
+      //
+      // Aqui vivia un fallo de perdida de datos: con `rutaActiva = ruta` antes
+      // del await de la lectura, durante ese instante la ruta era la nueva y
+      // el borrador seguia siendo el del fichero viejo. Un guardado que
+      // cayera ahi (el editor emitiendo al cambiar de modelo, un guardado
+      // agendado) escribia el contenido viejo ENCIMA del fichero nuevo.
+      const contenido = (await sfv.leer(this.proyecto, ruta)) ?? ''
+
+      // Con $patch los tres cambian de una vez, y quien esté mirando el
+      // almacén nunca ve la ruta nueva con el contenido viejo.
+      this.$patch({
+        rutaActiva: ruta,
+        rutaDelBorrador: ruta,
+        borrador: contenido,
+        error: null,
+      })
     },
 
     // Se llama en cada pulsacion. No escribe en disco: solo agenda.
-    escribir(contenido) {
+    //
+    // `ruta` es de que fichero viene el contenido. Si no es el que esta
+    // abierto, se ignora: es un aviso a destiempo del editor y guardarlo
+    // machacaria el fichero equivocado.
+    escribir(contenido, ruta = null) {
+      if (ruta && ruta !== this.rutaActiva) return
+
       this.borrador = contenido
+      this.rutaDelBorrador = this.rutaActiva
       this.agendarGuardado()
     },
 
@@ -82,6 +108,14 @@ export const usarTaller = defineStore('taller', {
     async guardarYa() {
       clearTimeout(this._reloj)
       if (!this.rutaActiva) {
+        this.guardando = false
+        return
+      }
+
+      // Segundo cerrojo: el borrador lleva apuntado de qué fichero es. Si no
+      // coincide con el abierto, no se guarda nada. Un guardado en el fichero
+      // equivocado es perder el trabajo de alguien.
+      if (this.rutaDelBorrador && this.rutaDelBorrador !== this.rutaActiva) {
         this.guardando = false
         return
       }

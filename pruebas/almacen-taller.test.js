@@ -186,4 +186,72 @@ describe('almacen del taller', () => {
 
     expect(taller.revision).toBeGreaterThan(antes)
   })
+
+  // ---- Que un fichero no acabe dentro de otro ----
+  //
+  // Esto pasó de verdad: el contenido de index.html acabó escrito dentro de
+  // App.vue. La causa era una ventana entre dos líneas de abrir(): la ruta ya
+  // era la nueva y el borrador seguía siendo el del fichero viejo. Cualquier
+  // guardado que cayera ahí escribía lo viejo encima de lo nuevo.
+
+  it('la ruta activa y el borrador nunca se ven descuadrados', async () => {
+    await taller.sembrar(mundo01.ficheros)
+    await taller.crear('src/otro.txt', 'SOY OTRO')
+
+    await taller.abrir('index.html')
+    const contenidoDelIndex = taller.borrador
+
+    // Se vigila CADA cambio del almacén mientras se abre otro fichero. Si en
+    // algún instante la ruta ya es la nueva y el borrador sigue siendo el
+    // viejo, un guardado que caiga ahí escribe un fichero dentro de otro.
+    const descuadres = []
+    const dejarDeMirar = taller.$subscribe(() => {
+      if (taller.rutaActiva === 'src/otro.txt' && taller.borrador === contenidoDelIndex) {
+        descuadres.push('src/otro.txt abierto con el contenido de index.html')
+      }
+    })
+
+    await taller.abrir('src/otro.txt')
+    dejarDeMirar()
+
+    expect(descuadres).toEqual([])
+    expect(taller.borrador).toBe('SOY OTRO')
+  })
+
+  it('un guardado durante la apertura no escribe en el fichero equivocado', async () => {
+    await taller.sembrar(mundo01.ficheros)
+    await taller.crear('src/otro.txt', 'CONTENIDO DE OTRO')
+
+    await taller.abrir('index.html')
+    taller.escribir('MARCA DEL INDEX', 'index.html')
+
+    // Se fuerza un guardado sin esperar a que la apertura termine.
+    const abriendo = taller.abrir('src/otro.txt')
+    await taller.guardarYa()
+    await abriendo
+
+    expect(await contenidoDe(taller.proyecto, 'src/otro.txt')).toBe('CONTENIDO DE OTRO')
+  })
+
+  it('escribir con la ruta de otro fichero se ignora', async () => {
+    await taller.sembrar(mundo01.ficheros)
+    await taller.crear('src/otro.txt', 'INTACTO')
+    await taller.abrir('src/otro.txt')
+
+    // El editor avisa tarde, con el contenido del fichero anterior.
+    taller.escribir('BASURA DEL ANTERIOR', 'index.html')
+    await taller.guardarYa()
+
+    expect(await contenidoDe(taller.proyecto, 'src/otro.txt')).toBe('INTACTO')
+  })
+
+  it('al abrir, la ruta y el borrador quedan siempre en pareja', async () => {
+    await taller.sembrar(mundo01.ficheros)
+    await taller.crear('src/otro.txt', 'SOY OTRO')
+
+    await taller.abrir('src/otro.txt')
+    expect(taller.rutaActiva).toBe('src/otro.txt')
+    expect(taller.borrador).toBe('SOY OTRO')
+    expect(taller.rutaDelBorrador).toBe(taller.rutaActiva)
+  })
 })

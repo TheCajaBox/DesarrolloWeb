@@ -203,7 +203,9 @@ function montar() {
     // ruta y contenido llegan en momentos distintos), no se emite nada.
     if (editor.getModel()?.uri.toString() !== uriDe(props.ruta)) return
 
-    emitir('escribir', editor.getValue())
+    // Se emite CON la ruta: así el almacén puede descartar un aviso que llegue
+    // a destiempo en vez de guardarlo en el fichero equivocado.
+    emitir('escribir', editor.getValue(), props.ruta)
   })
 
   refrescar()

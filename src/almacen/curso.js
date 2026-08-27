@@ -39,9 +39,12 @@ const CLAVE_REVISION = 'sombrero-revision'
 function leerRevision() {
   try {
     const guardado = localStorage.getItem(CLAVE_REVISION)
-    return guardado === null ? true : guardado === 'si'
+    // Una instalación nueva arranca CON candados: quien viene a aprender abre
+    // los mundos terminando el anterior. El modo revisión es para recorrer el
+    // temario de un tirón, y se enciende desde la cabecera cuando hace falta.
+    return guardado === null ? false : guardado === 'si'
   } catch {
-    return true
+    return false
   }
 }
 

@@ -398,7 +398,7 @@ async function reiniciarMundo() {
           :contenido="taller.borrador"
           :extension="taller.extensionActiva"
           :ruta="taller.rutaActiva"
-          @escribir="taller.escribir($event)"
+          @escribir="(contenido, ruta) => taller.escribir(contenido, ruta)"
         />
       </section>
 

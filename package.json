@@ -97,7 +97,8 @@
         "owner": "TheCajaBox",
         "repo": "DesarrolloWeb"
       }
-    ]
+    ],
+    "artifactName": "el-sombrero-de-wayne-${version}.${ext}"
   },
   "allowScripts": {
     "esbuild@0.28.1": true,

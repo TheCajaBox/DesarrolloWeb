@@ -266,6 +266,150 @@ const terminos = [
     definicion:
       'El fallo que aparece cuando el texto que escribe alguien se inserta en la página como HTML: entonces puede meter un <script> que se ejecuta en el navegador de los demás.',
   },
+
+  // ---- Vue ----
+  {
+    termino: 'componente',
+    alias: ['componentes'],
+    definicion:
+      'Un fichero .vue con tres bloques: template (HTML, lo que se ve), style (CSS, cómo se ve) y script (JavaScript, la lógica). Es la pieza con la que se construye todo en Vue, y se usa como una etiqueta: <FichaSombrero />.',
+    ojo: 'Un componente no es "otra cosa" distinta de HTML, CSS y JavaScript: es una forma de juntar los tres en una caja reutilizable.',
+  },
+  {
+    termino: 'template',
+    alias: ['plantilla'],
+    definicion:
+      'El bloque del componente donde va el HTML. Todo lo que sabe hacer el HTML funciona aquí, más las directivas de Vue (v-if, v-for) y las llaves dobles.',
+  },
+  {
+    termino: 'scoped',
+    alias: ['style scoped'],
+    definicion:
+      'La palabra que acompaña al bloque <style> de un componente y encierra sus reglas: solo afectan a este componente, nunca a los demás. Vue lo consigue marcando por debajo cada elemento del template.',
+  },
+  {
+    termino: 'ref',
+    alias: ['refs'],
+    definicion:
+      'La función de Vue que crea un dato reactivo: una caja que guarda un valor y avisa a Vue cuando cambia, para que la página se actualice sola. Se importa desde vue.',
+    ojo: 'En el script se toca por su .value (contador.value = 3); en el template va a secas ({{ contador }}). Confundirlo es el despiste más común de Vue.',
+  },
+  {
+    termino: 'reactividad',
+    alias: ['reactivo', 'reactiva'],
+    definicion:
+      'El mecanismo central de Vue: los datos avisan cuando cambian, y Vue repinta exactamente las partes de la página que dependían de ellos. Tú tocas datos; la página va sola detrás.',
+  },
+  {
+    termino: 'interpolación',
+    alias: ['llaves dobles', '{{ }}'],
+    definicion:
+      'Las llaves dobles del template: {{ titulo }} escribe el valor actual del dato en ese hueco, y lo mantiene al día. Dentro cabe una expresión ({{ precio * 2 }}), pero conviene mantenerlas simples.',
+    ojo: 'Las llaves dobles escapan el HTML: si el texto trae etiquetas, se pintan como texto inofensivo. Por eso son la defensa natural contra el XSS.',
+  },
+  {
+    termino: 'directiva',
+    alias: ['directivas'],
+    definicion:
+      'Los atributos especiales de Vue que empiezan por v-: v-if decide si algo existe, v-for repite, v-model ata un campo a un dato, v-show esconde. Los dos puntos (:) y la arroba (@) son abreviaturas de v-bind y v-on.',
+  },
+  {
+    termino: 'v-if',
+    definicion:
+      'La directiva que hace que un elemento exista solo si su condición es verdadera. Con v-else (en el elemento inmediatamente siguiente) se cubre el caso contrario, y v-else-if encadena más casos.',
+  },
+  {
+    termino: 'v-for',
+    definicion:
+      'La directiva que repite un elemento por cada valor de una lista: v-for="sombrero in sombreros". Exige un :key con un valor único y estable (el id) para saber qué copia es cuál cuando la lista cambie.',
+    ojo: 'Usar la posición de la lista como key es la trampa clásica: al borrar o reordenar, las posiciones bailan y Vue confunde las copias.',
+  },
+  {
+    termino: 'v-model',
+    definicion:
+      'La directiva que ata un campo de formulario a un ref en las dos direcciones: la persona teclea y el dato cambia; el script cambia el dato y el campo se actualiza.',
+  },
+  {
+    termino: 'computed',
+    alias: ['derivado', 'derivados'],
+    definicion:
+      'La función de Vue que crea un valor calculado a partir de otros datos, y lo mantiene al día solo: se recalcula cuando cambia algo de lo que depende, y entre cambios sirve el valor guardado.',
+    ojo: 'A un computed no se le asigna: es una fórmula, no una caja. Si un valor se puede derivar de otros, computed; si nace nuevo, ref.',
+  },
+  {
+    termino: 'watch',
+    definicion:
+      'La función de Vue que vigila un dato y ejecuta un efecto cuando cambia: guardar, avisar, registrar. Para vigilar arrays u objetos por dentro necesita { deep: true }.',
+    ojo: '¿Un valor nuevo? computed. ¿Que pase algo? watch. Usar watch para calcular valores casi siempre es un computed disfrazado.',
+  },
+  {
+    termino: 'onMounted',
+    alias: ['ciclo de vida'],
+    definicion:
+      'El gancho del ciclo de vida que ejecuta código una vez, cuando el componente ya está montado en pantalla. Es el sitio de recuperar datos guardados o pedirlos a un servidor.',
+  },
+  {
+    termino: 'prop',
+    alias: ['props'],
+    definicion:
+      'Un dato que el padre le pasa al hijo. El hijo lo declara con defineProps (con su tipo y si es obligatorio) y el padre lo ata al usarlo: :sombrero="sombrero". Las props son de solo lectura para el hijo.',
+    ojo: 'Los datos bajan por props y los avisos suben por eventos. Si un hijo modifica una prop, algo está torcido en el diseño.',
+  },
+  {
+    termino: 'emit',
+    alias: ['emits', 'emitir'],
+    definicion:
+      'El mecanismo con el que un hijo avisa a su padre: declara sus eventos con defineEmits, los dispara con emit(\'nombre\', carga), y el padre los escucha con la arroba: @nombre="suFuncion".',
+  },
+  {
+    termino: 'slot',
+    alias: ['slots', 'hueco'],
+    definicion:
+      'El hueco de un componente donde aterriza lo que el padre escriba entre sus etiquetas. Con name="..." puede haber varios, y lo escrito dentro del propio <slot> es la reserva si el padre no manda nada.',
+  },
+  {
+    termino: 'router',
+    alias: ['vue-router', 'ruta', 'rutas'],
+    definicion:
+      'El mapa que decide qué componente se enseña en cada dirección: una lista de parejas path → componente. La vista ganadora se monta en el <RouterView>, y se navega sin recargar con <RouterLink to="...">.',
+  },
+  {
+    termino: 'vista',
+    alias: ['views', 'view'],
+    definicion:
+      'Un componente que hace de pantalla completa. Por dentro es un componente normal; vive en src/views/ para comunicar su papel: estos son pantallas, los de components/ son piezas.',
+  },
+  {
+    termino: 'SPA',
+    alias: ['single page application'],
+    definicion:
+      'Una aplicación de una sola página: el navegador carga una vez, y a partir de ahí el router cambia el componente central sin recargar. La dirección cambia; la página, nunca entera.',
+  },
+  {
+    termino: 'Pinia',
+    alias: ['store', 'stores', 'almacén'],
+    definicion:
+      'La librería oficial de estado compartido de Vue. Un store tiene state (los datos), getters (los derivados, como computed) y actions (las funciones que cambian el state). Cualquier componente lo abre, esté donde esté.',
+    ojo: 'El store es para datos que comparten pantallas lejanas. Un dato de un solo componente vive mejor en un ref local.',
+  },
+  {
+    termino: 'fetch',
+    definicion:
+      'La función del navegador para hacer peticiones HTTP. Devuelve una promesa (un "te lo daré"), así que se usa con await: primero la respuesta, y con otro await, su cuerpo convertido (.json()).',
+    ojo: 'Un 404 o un 500 NO lanzan error: para fetch, contestar ya es éxito. La comprobación respuesta.ok es trabajo tuyo.',
+  },
+  {
+    termino: 'async',
+    alias: ['await', 'asincronía', 'asíncrono', 'promesa', 'promesas'],
+    definicion:
+      'La gramática de las esperas: async marca una función que puede esperar, y await pausa esa función hasta que una promesa entrega su valor, sin congelar la página.',
+  },
+  {
+    termino: 'build',
+    alias: ['dist', 'compilar', 'minificar'],
+    definicion:
+      'La compilación de verdad: junta los componentes, traduce los .vue, minifica y deja la web autosuficiente en la carpeta dist/, lista para servirse desde cualquier hosting estático.',
+  },
 ]
 
 // Índice por término y por alias, todo en minúsculas, para buscar rápido.

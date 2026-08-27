@@ -14,6 +14,7 @@ const path = require('node:path')
 const fs = require('node:fs/promises')
 const fsSinc = require('node:fs')
 const { pideInternet, avisoDeInternet } = require('./politica-terminal.cjs')
+const { repararProyecto } = require('./reparar-proyecto.cjs')
 
 const RAIZ = path.join(__dirname, '..')
 const PLANTILLA = path.join(__dirname, 'proyecto-alumna')
@@ -27,7 +28,25 @@ const PROYECTO = app.isPackaged
 
 function prepararProyecto() {
   if (!app.isPackaged) return
-  if (fsSinc.existsSync(path.join(PROYECTO, 'index.html'))) return
+
+  if (fsSinc.existsSync(path.join(PROYECTO, 'index.html'))) {
+    // El proyecto ya existe: no se toca. Solo se repara lo que no puede ser
+    // obra de nadie (un .vue con un HTML dentro), porque con eso el taller no
+    // arranca y quien lo sufre no tiene forma de saber por qué.
+    try {
+      repararProyecto({
+        leer: (ruta) => fsSinc.readFileSync(ruta, 'utf8'),
+        escribir: (ruta, contenido) => fsSinc.writeFileSync(ruta, contenido, 'utf8'),
+        existe: (ruta) => fsSinc.existsSync(ruta),
+        plantilla: (relativa) => path.join(PLANTILLA, relativa),
+        proyecto: (relativa) => path.join(PROYECTO, relativa),
+        apuntar,
+      })
+    } catch (fallo) {
+      apuntar(`reparación: no se ha podido (${fallo.message})`)
+    }
+    return
+  }
 
   // Primer arranque: copiar la plantilla (sin node_modules) y enlazar los
   // módulos empaquetados con una unión de directorios, para que Vite resuelva

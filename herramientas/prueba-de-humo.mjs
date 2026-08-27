@@ -13,7 +13,7 @@
 // Si algo falla, sale con código 1 y no hay instalador que enviar.
 
 import { spawn } from 'node:child_process'
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 
@@ -146,6 +146,66 @@ try {
     rmSync(datos, { recursive: true, force: true })
   } catch {
     /* Windows a veces tarda en soltar los ficheros */
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Segunda ronda: un proyecto que YA existe, con el enlace a los módulos roto y
+// un fichero corrupto. Es el escenario de quien actualiza desde una versión
+// vieja, y es donde se han escondido los dos últimos fallos: el App.vue con un
+// HTML dentro y el `vue could not be resolved`.
+// ---------------------------------------------------------------------------
+
+console.log('\nSegunda ronda: proyecto viejo, enlace roto y fichero corrupto\n')
+
+const datosViejos = mkdtempSync(path.join(tmpdir(), 'humo-viejo-'))
+const proyectoViejo = path.join(datosViejos, 'proyecto-alumna')
+const plantilla = 'taller-escritorio/proyecto-alumna'
+
+mkdirSync(path.join(proyectoViejo, 'src'), { recursive: true })
+copyFileSync(path.join(plantilla, 'index.html'), path.join(proyectoViejo, 'index.html'))
+copyFileSync(path.join(plantilla, 'src/main.js'), path.join(proyectoViejo, 'src/main.js'))
+// El App.vue con el index.html dentro: el fallo que sufrió alguien de verdad.
+copyFileSync(path.join(plantilla, 'index.html'), path.join(proyectoViejo, 'src/App.vue'))
+// Y un enlace de módulos que apunta a donde ya no hay nada.
+try {
+  symlinkSync(path.join(datosViejos, 'no-existe'), path.join(proyectoViejo, 'node_modules'), 'junction')
+} catch {
+  /* si no se puede crear el enlace roto, la comprobación de abajo lo dirá */
+}
+
+const viejo = spawn(path.resolve(APP), [`--user-data-dir=${datosViejos}`], {
+  cwd: desde,
+  stdio: 'ignore',
+})
+
+try {
+  const previa = await pedir(PROYECTO, 30)
+  comprobar('con un proyecto viejo, la vista previa arranca', previa.estado === 200)
+
+  const appVue = readFileSync(path.join(proyectoViejo, 'src/App.vue'), 'utf8')
+  comprobar('el App.vue corrupto se ha reparado', /<template>/.test(appVue))
+  comprobar('lo corrupto se guardó al lado', existsSync(path.join(proyectoViejo, 'src/App.vue.roto')))
+
+  comprobar(
+    'el enlace a los módulos se ha rehecho',
+    existsSync(path.join(proyectoViejo, 'node_modules', 'vue', 'package.json')),
+  )
+
+  // Y la prueba de fuego: que su componente compile de verdad.
+  const compila = await pedir(`${PROYECTO}src/App.vue`, 8)
+  comprobar('su componente vuelve a compilar', compila.estado === 200 && /setup|_sfc_main/.test(compila.texto))
+} finally {
+  try {
+    viejo.kill()
+  } catch {
+    /* ya estaba muerta */
+  }
+  await esperar(1500)
+  try {
+    rmSync(datosViejos, { recursive: true, force: true })
+  } catch {
+    /* Windows tarda en soltar los ficheros */
   }
 }
 

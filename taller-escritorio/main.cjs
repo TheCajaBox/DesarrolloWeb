@@ -26,10 +26,58 @@ const PROYECTO = app.isPackaged
   ? path.join(app.getPath('userData'), 'proyecto-alumna')
   : PLANTILLA
 
+// El enlace a los módulos (vue, vue-router, pinia) que usa el proyecto de la
+// alumna. Se comprueba EN CADA ARRANQUE, no solo al sembrar: si el enlace
+// falta o apunta a una carpeta que ya no está —otra ruta de instalación, una
+// actualización, alguien que lo borró— Vite no resuelve `vue` y su proyecto
+// deja de compilar, con un error que no dice nada de la causa.
+function asegurarModulos() {
+  const enlace = path.join(PROYECTO, 'node_modules')
+  const destino = path.join(RAIZ, 'node_modules')
+  const prueba = path.join(enlace, 'vue', 'package.json')
+
+  if (fsSinc.existsSync(prueba)) return
+
+  // Quitar lo que haya antes de rehacerlo.
+  //
+  // Ojo con esto, que costó un rato: en Windows, rmSync con recursive y force
+  // NO borra un junction ROTO (intenta recorrerlo, no puede, y con force se
+  // calla). Después, symlinkSync falla con EEXIST y el enlace se queda igual
+  // de roto. Lo que sí funciona con un junction es rmdir o unlink, así que se
+  // prueban los tres en orden.
+  if (fsSinc.lstatSync(enlace, { throwIfNoEntry: false })) {
+    for (const quitar of [
+      () => fsSinc.rmdirSync(enlace),
+      () => fsSinc.unlinkSync(enlace),
+      () => fsSinc.rmSync(enlace, { recursive: true, force: true }),
+    ]) {
+      try {
+        quitar()
+      } catch {
+        /* se prueba el siguiente */
+      }
+      if (!fsSinc.lstatSync(enlace, { throwIfNoEntry: false })) break
+    }
+  }
+
+  if (fsSinc.lstatSync(enlace, { throwIfNoEntry: false })) {
+    apuntar(`módulos: no he podido quitar el enlace viejo en ${enlace}`)
+    return
+  }
+
+  try {
+    fsSinc.symlinkSync(destino, enlace, 'junction')
+    apuntar(`módulos: enlace rehecho ${enlace} -> ${destino}`)
+  } catch (fallo) {
+    apuntar(`módulos: no se ha podido enlazar (${fallo.message})`)
+  }
+}
+
 function prepararProyecto() {
   if (!app.isPackaged) return
 
   if (fsSinc.existsSync(path.join(PROYECTO, 'index.html'))) {
+    asegurarModulos()
     // El proyecto ya existe: no se toca. Solo se repara lo que no puede ser
     // obra de nadie (un .vue con un HTML dentro), porque con eso el taller no
     // arranca y quien lo sufre no tiene forma de saber por qué.
@@ -56,10 +104,7 @@ function prepararProyecto() {
     filter: (origen) => !origen.includes('node_modules'),
   })
 
-  const enlace = path.join(PROYECTO, 'node_modules')
-  if (!fsSinc.existsSync(enlace)) {
-    fsSinc.symlinkSync(path.join(RAIZ, 'node_modules'), enlace, 'junction')
-  }
+  asegurarModulos()
 }
 
 let viteAlumna = null
